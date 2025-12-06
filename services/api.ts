@@ -1,4 +1,4 @@
-import { ApiLogger } from '@/app/api-debug';
+Import { ApiLogger } from '@/app/api-debug';
 import { getDeviceId } from '@/utils/deviceId';
 
 const API_BASE_URL = 'https://moviedbr.com/api';
@@ -6,7 +6,6 @@ const MEDIA_BASE_URL = 'https://moviedbr.com/upload';
 
 export interface ApiError {
   message: string;
-  status: number;
 }
 
 const apiDebugLogger = ApiLogger.log;
@@ -52,7 +51,7 @@ class ApiClient {
 
     let requestBody: any = undefined;
     if (isFormDataBody) {
-      requestBody = 'FormData (multipart/form-data)';
+      requestBody = 'FormData (multipart/form-formdata)';
     } else if (options.body && typeof options.body === 'string') {
       try {
         requestBody = JSON.parse(options.body);
@@ -202,7 +201,7 @@ class ApiClient {
     }
   };
 
-  // --- VIDEOS MODULE (FINAL & CORRECTED) ---
+  // --- VIDEOS MODULE (FINAL & CORRECTED + SEARCH ADDED) ---
   videos = {
     getVideos: async (page: number = 1, limit: number = 10, category?: string) => {
       const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
@@ -222,7 +221,7 @@ class ApiClient {
     like: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/videos/action/like', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     unlike: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/videos/action/unlike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     
-    // NEW: Dislike/Undislike actions
+    // Dislike/Undislike actions
     dislike: async (id: string) => this.request<{ isDisliked: boolean }>('/videos/action/dislike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     undislike: async (id: string) => this.request<{ isDisliked: boolean }>('/videos/action/undislike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
 
@@ -232,7 +231,13 @@ class ApiClient {
     upload: async (formData: FormData) => this.request('/videos/upload', { method: 'POST', body: formData }),
     getDetails: async (id: string) => this.request<{ video: any }>(`/videos/details?id=${id}`),
 
-    // <<< USER REQUESTED FUNCTIONS ADDED >>>
+    // <<< NEW: USER REQUESTED VIDEO SEARCH FUNCTION >>>
+    search: async (query: string, page: number = 1, limit: number = 20) => {
+        const params = new URLSearchParams({ q: encodeURIComponent(query), page: page.toString(), limit: limit.toString() });
+        // Endpoint: /videos/search
+        return this.request<{ videos: any[]; total: number }>(`/videos/search?${params.toString()}`);
+    },
+
     report: async (videoId: string, reason: string = 'Inappropriate', description?: string) => {
       // Endpoint: /videos/action/report.php
       return this.request('/videos/action/report.php', {
