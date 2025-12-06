@@ -1,4 +1,4 @@
-Import { ApiLogger } from '@/app/api-debug';
+import { ApiLogger } from '@/app/api-debug';
 import { getDeviceId } from '@/utils/deviceId';
 
 const API_BASE_URL = 'https://moviedbr.com/api';
