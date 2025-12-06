@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+Import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Plus, TrendingUp, Flame, Clock, BarChart2, Search } from 'lucide-react-native';
 import React, { useState, useCallback, useMemo } from 'react';
@@ -25,6 +25,50 @@ import { api, MEDIA_BASE_URL } from '@/services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// --- VIRALITY SCORE LOGIC (Based on User's Saved Formula) ---
+
+interface VideoDataWithMetrics {
+    id: string;
+    shares_count: number;
+    comments_count: number;
+    likes_count: number;
+    dislikes_count: number;
+    created_at: string;
+    [key: string]: any; // Other video properties
+}
+
+const E_MAX = 10000;
+const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const calculateViralityScore = (video: VideoDataWithMetrics): number => {
+    const shares = Number(video.shares_count) || 0;
+    const comments = Number(video.comments_count) || 0;
+    const likes = Number(video.likes_count) || 0;
+    const dislikes = Number(video.dislikes_count) || 0;
+    const createdAt = new Date(video.created_at);
+    
+    // 1. Engagement Score (E_T)
+    const E_T = (10 * shares) + (5 * comments) + (2 * likes) - (3 * dislikes);
+
+    // 2. Age Decay (A_Decay)
+    const now = new Date();
+    const ageDays = (now.getTime() - createdAt.getTime()) / MILLIS_PER_DAY;
+    const t = ageDays; // t = age in days
+    
+    // Decay formula: A_Decay = (1/2)^(t / 7)
+    const A_Decay = Math.pow(0.5, (t / 7));
+
+    // 3. Final Virality Score
+    const rawScore = (E_T * A_Decay) / E_MAX;
+    const finalScore = Math.min(100, rawScore * 100);
+    
+    // Return the score (0 or greater)
+    return Math.max(0, finalScore);
+};
+
+// --- END OF VIRALITY SCORE LOGIC ---
+
+
 // Filter Categories
 const VIDEO_FILTERS = [
   { id: 'all', label: 'All', icon: BarChart2 },
@@ -41,7 +85,7 @@ const getMediaUri = (uri: string | undefined) => {
 
 // Helper: Format Views (e.g. 1.2M, 5K)
 const formatViews = (views: number | undefined | null) => {
-  const safeViews = Number(views) || 0; // FIX: Ensure views is a number for safety
+  const safeViews = Number(views) || 0; 
   if (safeViews >= 1000000) return `${(safeViews / 1000000).toFixed(1)}M`;
   if (safeViews >= 1000) return `${(safeViews / 1000).toFixed(1)}K`;
   return safeViews.toString();
@@ -124,6 +168,8 @@ const VideoCard = React.memo(({ video }: { video: any }) => {
               {formatViews(video.views_count)} views
               {' · '}
               {formatTimeAgo(video.created_at)}
+              {/* Optional: Show Score for debugging */}
+              {/* {video.calculatedScore !== undefined && ` [Score: ${video.calculatedScore.toFixed(1)}]`} */}
             </Text>
         </View>
       </View>
@@ -153,18 +199,23 @@ export default function VideosScreen() {
 
   const videos = videosData?.videos || [];
 
-  // 2. Sorting Logic (Viral Strategy)
+  // 2. Sorting Logic (Viral Strategy Implementation)
   const displayVideos = useMemo(() => {
     if (!videos.length) return [];
     
-    let sorted = [...videos];
+    // First, calculate the score for all videos
+    const videosWithScore = videos.map(video => ({
+        ...video,
+        // Use the saved formula to calculate the score
+        calculatedScore: calculateViralityScore(video as VideoDataWithMetrics)
+    }));
+    
+    let sorted = [...videosWithScore];
 
-    if (selectedFilter === 'trending') {
-       // STRATEGY: Highest Viral Score comes first
-       sorted.sort((a, b) => (Number(b.viral_score) || 0) - (Number(a.viral_score) || 0));
-    } else if (selectedFilter === 'hot') {
-       // STRATEGY: High Viral Score + Freshness (Simplistic: Viral Score)
-       sorted.sort((a, b) => (Number(b.viral_score) || 0) - (Number(a.viral_score) || 0));
+    if (selectedFilter === 'trending' || selectedFilter === 'hot') {
+       // STRATEGY: Highest Viral Score comes first (Hot and Trending use the same core logic)
+       sorted.sort((a, b) => (b.calculatedScore) - (a.calculatedScore));
+       
     } else if (selectedFilter === 'recent') {
        // STRATEGY: Newest Uploads
        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -181,7 +232,8 @@ export default function VideosScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.headerTitle}>Videos</Text>
         <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/search')}>
+            {/* FIX: Search button now points to the new path /videos/search */}
+            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/videos/search')}>
                 <Search color="#fff" size={24} />
             </TouchableOpacity>
             {isAuthenticated && (
