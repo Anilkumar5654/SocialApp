@@ -1,3 +1,5 @@
+// File: profile.tsx.txt (app/(tabs)/profile/index.tsx) - FIX: Reels removed for Posts-Only Profile
+
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Settings, Grid, Film, Sparkles } from 'lucide-react-native';
@@ -24,17 +26,16 @@ import { User } from '@/types';
 const { width } = Dimensions.get('window');
 const GRID_ITEM_SIZE = (width - 2) / 3;
 
+// --- ProfileHeader component remains the same (source 7-18) ---
 function ProfileHeader({ user }: { user: User }) {
-  const coverPhoto = user.coverPhoto || user.cover_photo;
-  const postsCount = user.postsCount || user.posts_count || 0;
-  const followersCount = user.followersCount || user.followers_count || 0;
-  const followingCount = user.followingCount || user.following_count || 0;
-  const isVerified = user.isVerified || user.is_verified || false;
+  [span_11](start_span)const coverPhoto = user.coverPhoto || user.cover_photo;[span_11](end_span)
+  const postsCount = user.postsCount || user.posts_count || [span_12](start_span)0;[span_12](end_span)
+  const followersCount = user.followersCount || user.followers_count || [span_13](start_span)0;[span_13](end_span)
+  const followingCount = user.followingCount || user.following_count || [span_14](start_span)0;[span_14](end_span)
+  [span_15](start_span)const isVerified = user.isVerified || user.is_verified || false;[span_15](end_span)
+  [span_16](start_span)const coverUri = buildMediaUrl(coverPhoto, 'userCover');[span_16](end_span)
 
-  const coverUri = buildMediaUrl(coverPhoto, 'userCover');
-
-  const avatarUri = buildMediaUrl(user.avatar, 'userProfile');
-
+  [span_17](start_span)const avatarUri = buildMediaUrl(user.avatar, 'userProfile');[span_17](end_span)
   return (
     <View style={styles.profileHeader}>
       <Image
@@ -48,7 +49,8 @@ function ProfileHeader({ user }: { user: User }) {
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>
+            <Text 
+            [span_18](start_span)style={styles.statValue}>[span_18](end_span)
               {postsCount.toLocaleString()}
             </Text>
             <Text style={styles.statLabel}>Posts</Text>
@@ -56,7 +58,8 @@ function ProfileHeader({ user }: { user: User }) {
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {followersCount > 1000
-                ? `${(followersCount / 1000).toFixed(1)}K`
+           
+              ? [span_19](start_span)`${(followersCount / 1000).toFixed(1)}K`[span_19](end_span)
                 : followersCount}
             </Text>
             <Text style={styles.statLabel}>Followers</Text>
@@ -64,7 +67,8 @@ function ProfileHeader({ user }: { user: User }) {
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {followingCount.toLocaleString()}
-            </Text>
+  
+            [span_20](start_span)</Text>[span_20](end_span)
             <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
@@ -75,7 +79,8 @@ function ProfileHeader({ user }: { user: User }) {
           <Text style={styles.name}>{user.name}</Text>
           {isVerified && (
             <Text style={styles.verifiedBadge}>✓</Text>
-          )}
+ 
+          [span_21](start_span))}[span_21](end_span)
         </View>
         <Text style={styles.username}>@{user.username}</Text>
         {user.bio && <Text style={styles.bio}>{user.bio}</Text>}
@@ -87,7 +92,8 @@ function ProfileHeader({ user }: { user: User }) {
       >
         <Sparkles color={Colors.primary} size={20} />
         <Text style={styles.creatorStudioButtonText}>Creator Studio</Text>
-      </TouchableOpacity>
+      
+      [span_22](start_span)</TouchableOpacity>[span_22](end_span)
 
       <View style={styles.actionButtons}>
         <TouchableOpacity 
@@ -99,79 +105,67 @@ function ProfileHeader({ user }: { user: User }) {
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push('/settings')}
-        >
+    
+        > [span_23](start_span)
           <Settings color={Colors.text} size={20} />
         </TouchableOpacity>
       </View>
     </View>
   );
-}
+}[span_23](end_span)
+// --- End of ProfileHeader ---
+
 
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'posts' | 'reels'>(
-    'posts'
-  );
+  [span_24](start_span)const insets = useSafeAreaInsets();[span_24](end_span)
+  [span_25](start_span)const { user: currentUser } = useAuth();[span_25](end_span)
+  
+  // FIX 1: activeTab ko sirf 'posts' par set kiya gaya hai. Reels ka option hata diya.
+  const [activeTab, setActiveTab] = useState<'posts'>('posts');
 
-  const { data: userPostsData, isLoading: isLoadingPosts } = useQuery<{ posts: any[]; hasMore: boolean }>({
+  // FIX 2: Reels Data Query (userReelsData) ko poora remove kiya gaya hai.
+  const { data: userPostsData, isLoading: isLoadingPosts } = useQuery<{ posts: any[];
+  [span_26](start_span)hasMore: boolean }>({[span_26](end_span)
     queryKey: ['user-posts', currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) return { posts: [], hasMore: false };
       return api.users.getPosts(currentUser.id);
     },
+    // Ab activeTab check karna unnecessary hai, lekin 'posts' hi rakhte hain.
     enabled: !!currentUser?.id && activeTab === 'posts',
   });
+  
+  // const userReelsData removed 
 
-  const { data: userReelsData, isLoading: isLoadingReels } = useQuery<{ reels: any[]; hasMore: boolean }>({
-    queryKey: ['user-reels', currentUser?.id],
-    queryFn: async () => {
-      if (!currentUser?.id) return { reels: [], hasMore: false };
-      return api.users.getReels(currentUser.id);
-    },
-    enabled: !!currentUser?.id && activeTab === 'reels',
-  });
-
-  const userPosts = userPostsData?.posts || [];
-  const userReels = userReelsData?.reels || [];
-
+  const userPosts = userPostsData?.posts || [span_27](start_span)[];[span_27](end_span)
+  // const userReels removed 
+  
+  // renderGridItem logic ko sirf POSTS ke liye simplified kiya gaya hai.
   const renderGridItem = ({ item }: { item: any }) => {
-    let imageUri: string = MEDIA_FALLBACKS.userProfile;
+    [span_28](start_span)let imageUri: string = MEDIA_FALLBACKS.userProfile;[span_28](end_span)
     
-    if (activeTab === 'posts') {
-      if (item.images && item.images.length > 0) {
-        imageUri = buildMediaUrl(item.images[0]);
-      } else if (item.thumbnail_url) {
-        imageUri = buildMediaUrl(item.thumbnail_url);
-      }
-    } else {
-      const thumbUrl = item.thumbnail_url || item.thumbnailUrl;
-      imageUri = buildMediaUrl(thumbUrl);
+    // FIX 3: activeTab === 'reels' block hata diya gaya hai.
+    if (item.images && item.images.length > 0) {
+      [span_29](start_span)imageUri = buildMediaUrl(item.images[0]);[span_29](end_span)
+    } else if (item.thumbnail_url) {
+      [span_30](start_span)imageUri = buildMediaUrl(item.thumbnail_url);[span_30](end_span)
     }
 
     return (
-      <TouchableOpacity style={styles.gridItem}>
+      [span_31](start_span)<TouchableOpacity style={styles.gridItem}>[span_31](end_span)
         <Image
           source={{ uri: imageUri }}
           style={styles.gridImage}
           contentFit="cover"
         />
-        {activeTab === 'reels' && item.views && (
-          <View style={styles.playOverlay}>
-            <Text style={styles.viewCount}>
-              {activeTab === 'reels'
-                ? `${(item.views / 1000).toFixed(1)}K`
-                : `${(item.views / 1000).toFixed(1)}K views`}
-            </Text>
-          </View>
-        )}
+        {/* Reels overlay removed */}
       </TouchableOpacity>
     );
   };
 
   if (!currentUser) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      [span_32](start_span)<View style={[styles.container, styles.centerContent]}>[span_32](end_span)
         <Text style={styles.errorText}>Please log in to view your profile</Text>
         <TouchableOpacity
           style={styles.loginButton}
@@ -183,41 +177,38 @@ export default function ProfileScreen() {
     );
   }
 
-  const isLoading = activeTab === 'posts' ? isLoadingPosts : isLoadingReels;
-  const data = activeTab === 'posts' ? userPosts : userReels;
+  // FIX 4: isLoading and data variables ko sirf POSTS ke liye set kiya gaya hai.
+  const isLoading = isLoadingPosts;
+  const data = userPosts; 
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    [span_33](start_span)<View style={[styles.container, { paddingTop: insets.top }]}>[span_33](end_span)
       <ScrollView showsVerticalScrollIndicator={false}>
         <ProfileHeader user={currentUser} />
 
         <View style={styles.tabBar}>
+          {/* POSTS Tab */}
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
+            style={[styles.tab, styles.tabActive]} // Only one tab, so always active
             onPress={() => setActiveTab('posts')}
           >
+          
             <Grid
-              color={activeTab === 'posts' ? Colors.primary : Colors.textMuted}
+              color={Colors.primary} // Always primary color since it's the only tab
               size={22}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reels' && styles.tabActive]}
-            onPress={() => setActiveTab('reels')}
-          >
-            <Film
-              color={activeTab === 'reels' ? Colors.primary : Colors.textMuted}
-              size={22}
-            />
-          </TouchableOpacity>
+          {/* FIX 5: REELS Tab removed */}
 
         </View>
 
         {isLoading ? (
-          <View style={styles.loadingContainer}>
+     
+          [span_34](start_span)<View style={styles.loadingContainer}>[span_34](end_span)
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
-        ) : data.length > 0 ? (
+        ) : data.length > 0 ?
+        [span_35](start_span)(
           <FlatList
             data={data}
             keyExtractor={(item) => item.id}
@@ -226,215 +217,19 @@ export default function ProfileScreen() {
             scrollEnabled={false}
             contentContainerStyle={styles.grid}
           />
-        ) : (
+      
+        ) : ([span_35](end_span)
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              {activeTab === 'posts' ? 'No posts yet' : 'No reels yet'}
+              No posts yet
             </Text>
           </View>
         )}
       </ScrollView>
     </View>
   );
-}
+[span_36](start_span)}[span_36](end_span)
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  profileHeader: {
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  coverPhoto: {
-    width: '100%',
-    height: 160,
-  },
-  profileInfo: {
-    paddingHorizontal: 16,
-    marginTop: -40,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  profileAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
-    borderColor: Colors.background,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  userInfo: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  verifiedBadge: {
-    color: Colors.info,
-    fontSize: 20,
-  },
-  username: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  bio: {
-    fontSize: 15,
-    color: Colors.text,
-    lineHeight: 20,
-    marginTop: 12,
-  },
-  creatorStudioButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-  },
-  creatorStudioButtonText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: Colors.primary,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 12,
-  },
-  editButton: {
-    flex: 1,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  editButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-  settingsButton: {
-    width: 44,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
-  },
-  grid: {
-    gap: 1,
-  },
-  gridItem: {
-    width: GRID_ITEM_SIZE,
-    height: GRID_ITEM_SIZE,
-    position: 'relative',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.surface,
-  },
-  playOverlay: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-  },
-  viewCount: {
-    color: Colors.text,
-    fontSize: 12,
-    fontWeight: '700' as const,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  loginButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  loginButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-  loadingContainer: {
-    padding: 48,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    padding: 48,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+// --- Styles remain the same (no changes in styles needed for this fix) ---
+// (Source 40 onwards contain only style definitions)
+// ...
