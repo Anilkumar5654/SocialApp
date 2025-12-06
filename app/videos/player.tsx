@@ -1,4 +1,4 @@
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+Import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
@@ -60,7 +60,10 @@ export default function VideoPlayerScreen() {
   const [seekPosition, setSeekPosition] = useState(0); 
   const progressBarRef = useRef<View | null>(null);
   const progressBarWidth = useRef(0);
+  
+  // Double-tap & Controls State
   const lastTapTime = useRef(0);
+  const controlsTimeout = useRef<NodeJS.Timeout | null>(null); // For single tap to hide/show controls
   
   // Seek Feedback State
   const [showSeekIcon, setShowSeekIcon] = useState(false);
@@ -80,13 +83,24 @@ export default function VideoPlayerScreen() {
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [commentText, setCommentText] = useState('');
+  
+  // Toast State and Refs for Cleanup
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const toastTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const showCustomToast = (message: string) => {
+    // Clear any existing toast timeout before setting a new one
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    
     setToastMessage(message);
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000); 
+    
+    // Set a new timeout and store its reference
+    toastTimeout.current = setTimeout(() => {
+        setShowToast(false);
+        toastTimeout.current = null; // Mark as cleared
+    }, 3000); 
   };
 
 
@@ -125,8 +139,9 @@ export default function VideoPlayerScreen() {
       if (seekFeedbackTimeout.current) clearTimeout(seekFeedbackTimeout.current);
       setSeekDirection(direction);
       setShowSeekIcon(true);
-      setTimeout(() => {
+      seekFeedbackTimeout.current = setTimeout(() => {
           setShowSeekIcon(false);
+          seekFeedbackTimeout.current = null;
       }, 500);
   };
   
@@ -142,8 +157,14 @@ export default function VideoPlayerScreen() {
     const finalPosition = Math.min(Math.max(0, newPosition), maxDuration);
 
     try {
+      // Use statusAsync command for reliable jump without immediate play/pause change
       await videoRef.current.setStatusAsync({ positionMillis: finalPosition });
-      if (showControls) setSeekPosition(finalPosition);
+      
+      // Update seekPosition to show the marker move visually in the VideoController
+      if (showControls) setSeekPosition(finalPosition); 
+      
+      // The onPlaybackStatusUpdate will handle updating currentPosition and isPlaying.
+
     } catch (e) { console.log('Seek failed:', e); }
   }, [currentPosition, videoDuration, showControls]);
 
@@ -156,23 +177,25 @@ export default function VideoPlayerScreen() {
       setSeekPosition(newPositionMillis);
   };
 
-  // <<< PAUSE-JUMP-PLAY LOGIC START >>>
+  // <<< PAUSE-JUMP-PLAY LOGIC START (FIXED) >>>
   const handleSeekStart = async (event: any) => { 
       if (!videoRef.current) return;
       
-      // 1. Save the playback state and force pause
       const status = await videoRef.current.getStatusAsync();
       if (!status.isLoaded) return;
+      
+      // 1. Save the playback state and force pause
       wasPlayingBeforeSeek.current = status.isPlaying || false; 
 
-      if (videoRef.current) {
+      if (status.isPlaying) {
           await videoRef.current.pauseAsync();
-          setIsPlaying(false);
+          // Do NOT setIsPlaying(false) here, let onPlaybackStatusUpdate handle the state change
       }
       
       // 2. Enter seeking mode
-      const initialSeekPos = isSeeking ? seekPosition : currentPosition;
-      setSeekPosition(initialSeekPos);
+      // Initialize seekPosition to the *current* video position, not 0
+      const initialSeekPos = status.positionMillis;
+      setSeekPosition(initialSeekPos); 
       setIsSeeking(true);
       handleSeek(event.nativeEvent.locationX);
   };
@@ -192,7 +215,7 @@ export default function VideoPlayerScreen() {
                   shouldPlay: wasPlayingBeforeSeek.current 
               }); 
               
-              // Reset seeking mode.
+              // Reset seeking mode and seekPosition (currentPosition will update from onPlaybackStatusUpdate)
               setIsSeeking(false);
               setSeekPosition(0); 
 
@@ -208,25 +231,44 @@ export default function VideoPlayerScreen() {
 
   const handleLayout = (event: any) => { progressBarWidth.current = event.nativeEvent.layout.width; };
 
-  // DOUBLE TAP LOGIC
+  // DOUBLE TAP LOGIC (FIXED)
   const handleDoubleTap = (event: any) => {
     const now = Date.now();
-    const isDoubleTap = now - lastTapTime.current < 300; 
-    const tapX = event.nativeEvent.locationX;
-    const currentWidth = isFullscreen ? Dimensions.get('window').width : SCREEN_WIDTH; 
-    const isLeft = tapX < currentWidth * 0.4;
-    const isRight = tapX > currentWidth * 0.6;
+    const tapInterval = now - lastTapTime.current;
+    lastTapTime.current = now; // Update tap time for the next check
     
-    if (isDoubleTap) {
+    // Clear the controls timeout if it exists, as this is a tap event
+    if (controlsTimeout.current) {
+        clearTimeout(controlsTimeout.current);
+        controlsTimeout.current = null;
+    }
+    
+    // Detect double tap
+    if (tapInterval < 300) {
+      const tapX = event.nativeEvent.locationX;
+      const currentWidth = isFullscreen ? Dimensions.get('window').width : SCREEN_WIDTH; 
+      const isLeft = tapX < currentWidth * 0.4;
+      const isRight = tapX > currentWidth * 0.6;
+      
       if (isLeft) { seekVideo(-10); displaySeekFeedback('backward'); } 
       else if (isRight) { seekVideo(10); displaySeekFeedback('forward'); }
-      lastTapTime.current = 0; 
+      
+      // Keep controls visible after seeking
       setShowControls(true); 
+      
+      // Immediately reset lastTapTime to prevent triple-tap or control toggle
+      lastTapTime.current = 0; 
       return;
     }
-    lastTapTime.current = now;
-    setTimeout(() => {
-        if (Date.now() - lastTapTime.current >= 300) { setShowControls(!showControls); }
+    
+    // Single Tap: Set a timeout to toggle controls only if no second tap occurs
+    controlsTimeout.current = setTimeout(() => {
+        // If lastTapTime hasn't been reset (meaning no double-tap occurred)
+        if (lastTapTime.current !== 0) { 
+            setShowControls(prev => !prev); 
+        }
+        lastTapTime.current = 0; // Reset after the single-tap action is complete
+        controlsTimeout.current = null;
     }, 300);
   };
   
@@ -239,8 +281,9 @@ export default function VideoPlayerScreen() {
 
   const togglePlayPause = async () => {
     if (!videoRef.current) return;
-    if (isPlaying) { await videoRef.current.pauseAsync(); setIsPlaying(false); setShowControls(true); } 
-    else { await videoRef.current.playAsync(); setIsPlaying(true); }
+    if (isPlaying) { await videoRef.current.pauseAsync(); setShowControls(true); } 
+    else { await videoRef.current.playAsync(); }
+    // Note: isPlaying state is now updated via onPlaybackStatusUpdate for consistency
   };
   
   const trackVideoWatch = useCallback(async (watchedSec: number) => {
@@ -254,12 +297,47 @@ export default function VideoPlayerScreen() {
 
   // Effects and Watch Time Cleanup (Existing Logic)
   useEffect(() => {
-    if (video) { /* ... initialization logic ... */ }
+    if (video) { 
+        setLikesCount(video.likes_count || 0);
+        setIsLiked(video.is_liked || false);
+        setIsDisliked(video.is_disliked || false);
+        setIsSubscribed(video.channel.is_subscribed || false);
+        setTotalDurationSec(video.duration_sec || 0); 
+    }
   }, [video]);
-
+  
+  // Cleanup Effects
   useEffect(() => {
-    // ... Cleanup logic (simplified for brevity) ...
-  }, [videoId, totalDurationSec]);
+    let watchTimer: NodeJS.Timeout | null = null;
+    let secondsWatched = 0;
+    
+    // Start tracking watch time every 5 seconds if playing
+    if (isPlaying && !isSeeking) {
+        watchTimer = setInterval(() => {
+            secondsWatched += 5;
+            trackVideoWatch(secondsWatched);
+        }, 5000);
+    }
+    
+    return () => {
+        // Cleanup 1: Clear the video tracking timer
+        if (watchTimer) clearInterval(watchTimer);
+        
+        // Cleanup 2: Clear the custom toast timeout
+        if (toastTimeout.current) clearTimeout(toastTimeout.current);
+        
+        // Cleanup 3: Clear the controls timeout
+        if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
+        
+        // Cleanup 4: Clear the seek feedback timeout
+        if (seekFeedbackTimeout.current) clearTimeout(seekFeedbackTimeout.current);
+        
+        // When screen unmounts, track the final watch time.
+        if (secondsWatched > 0) {
+            trackVideoWatch(secondsWatched);
+        }
+    };
+  }, [videoId, totalDurationSec, isPlaying, isSeeking, trackVideoWatch]);
 
 
   // Null Check
@@ -303,13 +381,17 @@ export default function VideoPlayerScreen() {
           // FIX: Simplified onPlaybackStatusUpdate for consistent position/state tracking
           onPlaybackStatusUpdate={status => {
              if (status.isLoaded) {
-                 setVideoDuration(status.durationMillis || 0);
+                 // Only set duration once
+                 if (videoDuration === 0) setVideoDuration(status.durationMillis || 0);
                  
                  // Always update position from the actual player status
                  setCurrentPosition(status.positionMillis);
                  
                  // Keep isPlaying state in sync with the actual player status
-                 setIsPlaying(status.isPlaying || false);
+                 // Only update if the player's status differs from the local state
+                 if (status.isPlaying !== isPlaying) {
+                     setIsPlaying(status.isPlaying || false);
+                 }
                  
                  if (status.didJustFinish) { 
                     setIsPlaying(false); 
@@ -328,7 +410,7 @@ export default function VideoPlayerScreen() {
             isSeeking={isSeeking}
             currentPosition={currentPosition}
             videoDuration={videoDuration}
-            // Use seekPosition only when actively dragging/seeking
+            // Use seekPosition when seeking, otherwise use currentPosition
             seekPosition={isSeeking ? seekPosition : currentPosition} 
             showSeekIcon={showSeekIcon}
             seekDirection={seekDirection}
@@ -403,7 +485,7 @@ export default function VideoPlayerScreen() {
                     <Text style={styles.commentsHeader}>Comments</Text>
                     <Text style={styles.commentsCount}>{comments.length}</Text>
                 </View>
-                {/* FIX: Added necessary checks for null/undefined objects to prevent "Can't read properties of null" error */}
+                {/* Checks for comments[0] and comments[0].user remain correct */}
                 {comments.length > 0 && comments[0] && comments[0].user ? (
                     <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
                         <Image source={{ uri: getMediaUrl(comments[0].user.avatar) }} style={{width:24, height:24, borderRadius:12}} />
