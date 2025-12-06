@@ -1,4 +1,4 @@
-Import { Image } from 'expo-image';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Plus, TrendingUp, Flame, Clock, BarChart2, Search } from 'lucide-react-native';
 import React, { useState, useCallback, useMemo } from 'react';
