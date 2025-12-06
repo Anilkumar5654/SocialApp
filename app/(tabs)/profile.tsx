@@ -22,7 +22,8 @@ import { api } from '@/services/api';
 import { User } from '@/types'; // Assuming User type is defined
 
 const { width } = Dimensions.get('window');
-const GRID_ITEM_SIZE = (width - 2) / 3;
+// Grid items 3-column layout ke liye, 1px ka gap rakha hai
+const GRID_ITEM_SIZE = (width - 2) / 3; 
 
 // --- ProfileHeader component ---
 function ProfileHeader({ user }: { user: User }) {
@@ -31,9 +32,10 @@ function ProfileHeader({ user }: { user: User }) {
   const followersCount = user.followersCount || user.followers_count || 0;
   const followingCount = user.followingCount || user.following_count || 0;
   const isVerified = user.isVerified || user.is_verified || false;
-  const coverUri = buildMediaUrl(coverPhoto, 'userCover');
 
+  const coverUri = buildMediaUrl(coverPhoto, 'userCover');
   const avatarUri = buildMediaUrl(user.avatar, 'userProfile');
+
   return (
     <View style={styles.profileHeader}>
       <Image
@@ -54,9 +56,7 @@ function ProfileHeader({ user }: { user: User }) {
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {followersCount > 1000
-                ? `${(followersCount / 1000).toFixed(1)}K`
-                : followersCount}
+              {followersCount > 1000 ? `${(followersCount / 1000).toFixed(1)}K` : followersCount}
             </Text>
             <Text style={styles.statLabel}>Followers</Text>
           </View>
@@ -111,41 +111,46 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user: currentUser } = useAuth();
   
-  // FIX: activeTab ko sirf 'posts' par set kiya gaya hai. Reels ka option hata diya.
+  // Tab state set to 'posts' (since only posts are displayed)
   const [activeTab, setActiveTab] = useState<'posts'>('posts'); 
 
-  // FIX: Only fetching POSTS data
+  // 🎯 API CALL: Fetching self-posts using api.users.getPosts
   const { data: userPostsData, isLoading: isLoadingPosts } = useQuery<{ posts: any[]; hasMore: boolean }>({
     queryKey: ['user-posts', currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) return { posts: [], hasMore: false };
-      return api.users.getPosts(currentUser.id);
+      // 👇 Yeh woh API call hai jisse aapki khud ki posts fetch hongi
+      return api.users.getPosts(currentUser.id); 
     },
-    // Query always enabled if user exists, since we only have one tab
     enabled: !!currentUser?.id, 
   });
   
   const userPosts = userPostsData?.posts || [];
   
-  // FIX: Reels logic removed from renderGridItem
+  // 🎯 RENDERING LOGIC: Har post item ko grid mein dikhane ke liye
   const renderGridItem = ({ item }: { item: any }) => {
     let imageUri: string = MEDIA_FALLBACKS.userProfile;
     
-    // Logic for Posts (images or thumbnail_url)
+    // Check if post has images array or a direct thumbnail URL
     if (item.images && item.images.length > 0) {
-      imageUri = buildMediaUrl(item.images[0]);
+      // Assuming 'images' is an array of media objects, taking the first one
+      imageUri = buildMediaUrl(item.images[0]); 
     } else if (item.thumbnail_url) {
+      // Fallback for posts that might have a dedicated thumbnail
       imageUri = buildMediaUrl(item.thumbnail_url);
     }
+    // Agar koi media nahi mila, toh placeholder image (MEDIA_FALLBACKS.userProfile) dikhega
 
     return (
-      <TouchableOpacity style={styles.gridItem} onPress={() => console.log('View Post:', item.id)}>
+      <TouchableOpacity 
+        style={styles.gridItem} 
+        onPress={() => router.push({ pathname: '/post/[id]', params: { id: item.id } })} // Example navigation
+      >
         <Image
           source={{ uri: imageUri }}
           style={styles.gridImage}
           contentFit="cover"
         />
-        {/* Reels overlay removed */}
       </TouchableOpacity>
     );
   };
@@ -164,7 +169,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // FIX: Loading and Data variables only reference Posts
   const isLoading = isLoadingPosts;
   const data = userPosts; 
 
@@ -173,10 +177,10 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <ProfileHeader user={currentUser} />
 
-        {/* FIX: TabBar sirf Posts icon dikhayega aur Reels icon remove */}
+        {/* TabBar: Only Posts Tab */}
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tab, styles.tabActive]} // Always active since it's the only tab
+            style={[styles.tab, styles.tabActive]} 
             onPress={() => setActiveTab('posts')}
           >
             <Grid
@@ -184,7 +188,6 @@ export default function ProfileScreen() {
               size={22}
             />
           </TouchableOpacity>
-          {/* REELS Tab (Film icon) removed */}
         </View>
 
         {isLoading ? (
@@ -192,12 +195,13 @@ export default function ProfileScreen() {
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : data.length > 0 ? (
+          // 👇 Posts data ko 3-column grid mein display karna
           <FlatList
             data={data}
             keyExtractor={(item) => item.id}
             renderItem={renderGridItem}
             numColumns={3}
-            scrollEnabled={false}
+            scrollEnabled={false} // ScrollView ke andar hone ki wajah se
             contentContainerStyle={styles.grid}
           />
         ) : (
@@ -211,6 +215,8 @@ export default function ProfileScreen() {
     </View>
   );
 }
+
+// --- STYLES ---
 
 const styles = StyleSheet.create({
   container: {
@@ -350,6 +356,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: Colors.primary,
   },
+  // Posts Grid Styles
   grid: {
     gap: 1,
   },
@@ -357,6 +364,7 @@ const styles = StyleSheet.create({
     width: GRID_ITEM_SIZE,
     height: GRID_ITEM_SIZE,
     position: 'relative',
+    margin: 0.5, // 1px gap for each item (0.5 left + 0.5 right)
   },
   gridImage: {
     width: '100%',
