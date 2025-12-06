@@ -161,7 +161,9 @@ class ApiClient {
   };
 
   posts = {
-    getPost: async (id: string) => this.request<{ post: any }>(`/posts/details?id=${id}`),
+    // 👇 FIX: Endpoint ko 'posts/details.php?post_id=' use karne ke liye update kiya gaya hai
+    getPost: async (id: string) => this.request<{ post: any }>(`/posts/details.php?post_id=${id}`), 
+    
     create: async (formData: FormData) => this.request('/posts/create', { method: 'POST', body: formData }),
     
     delete: async (id: string) => this.request(`/posts/action/delete.php?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
