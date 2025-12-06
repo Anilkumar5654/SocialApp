@@ -10,11 +10,12 @@ import {
   Text,
   Keyboard,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Pressable // Import Pressable for channel tap
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X, ChevronLeft } from 'lucide-react-native';
-import { Image } from 'expo-image'; // Expo Image Import
+import { Image } from 'expo-image';
 
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
@@ -26,9 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // --- API FETCH FUNCTION ---
 const searchVideosApi = async (query: string) => {
   if (!query) return { videos: [] };
-  
   try {
-    // Calling the newly added search function in api.videos
     const response = await api.videos.search(query); 
     return response; 
   } catch (error) {
@@ -37,36 +36,78 @@ const searchVideosApi = async (query: string) => {
   }
 };
 
-// --- SINGLE VIDEO CARD COMPONENT (Re-used for Results) ---
+// --- SINGLE VIDEO CARD COMPONENT (NOW FULL-WIDTH FEED STYLE) ---
 const ResultVideoCard = React.memo(({ video }: { video: any }) => {
   const handlePress = useCallback(() => {
-    // Navigate to the player screen
     router.push({ pathname: '/videos/player', params: { videoId: video.id } });
   }, [video.id]);
 
+  const handleChannelPress = useCallback(() => {
+    if (video.channel_id) {
+        router.push({ pathname: '/channel/[channelId]', params: { channelId: video.channel_id } });
+    }
+  }, [video.channel_id]);
+
+  // Data Handling
   const thumbnailUrl = getMediaUrl(video.thumbnail_url);
   const channelName = video.channel_name || video.user?.channel_name || 'Unknown Channel';
+  const channelAvatar = getMediaUrl(video.channel_avatar || video.user?.avatar || 'assets/c_profile.jpg');
   const viewsDisplay = formatViews(video.views_count);
+  const videoDuration = Number(video.duration) || 0;
+  
+  // NOTE: Assuming formatDuration helper exists in utils/helpers.ts or similar. 
+  // If not, we use a simple fallback for now.
+  const formatDurationFallback = (seconds: number) => {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   return (
     <TouchableOpacity 
-      style={styles.resultCard} 
+      style={styles.videoCard} // Reusing videoCard style
       onPress={handlePress}
+      activeOpacity={0.9}
     >
+      {/* 1. Thumbnail Section (Full Width) */}
       <View style={styles.thumbnailContainer}>
-        {/* Thumbnail Image */}
         <Image 
           source={{ uri: thumbnailUrl }} 
           style={styles.thumbnail} 
-          contentFit="cover" 
+          contentFit="cover"
           transition={200}
         />
+        {/* Duration Badge */}
+        {videoDuration > 0 && (
+          <View style={styles.durationBadge}>
+            <Text style={styles.durationText}>
+                {formatDurationFallback(videoDuration)} 
+            </Text>
+          </View>
+        )}
       </View>
-      <View style={styles.textContainer}>
-        <Text style={styles.title} numberOfLines={2}>{video.title || 'Untitled Video'}</Text>
-        <Text style={styles.meta} numberOfLines={1}>
-            {channelName} · {viewsDisplay} views · {formatTimeAgo(video.created_at)}
-        </Text>
+      
+      {/* 2. Info Section (Avatar + Text) */}
+      <View style={styles.videoInfoRow}>
+        {/* Channel Avatar */}
+        <Pressable onPress={handleChannelPress}>
+           <Image source={{ uri: channelAvatar }} style={styles.avatar} />
+        </Pressable>
+
+        {/* Text Details */}
+        <View style={styles.videoDetailsColumn}>
+            <Text style={styles.videoTitle} numberOfLines={2}>
+              {video.title || 'Untitled Video'}
+            </Text>
+            
+            <Text style={styles.metaText} numberOfLines={1}>
+              {channelName}
+              {' · '}
+              {viewsDisplay} views
+              {' · '}
+              {formatTimeAgo(video.created_at)}
+            </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -76,15 +117,13 @@ const ResultVideoCard = React.memo(({ video }: { video: any }) => {
 // --- MAIN SEARCH SCREEN ---
 export default function SearchVideosScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState(''); // Only updated on manual trigger
+  const [debouncedQuery, setDebouncedQuery] = useState(''); 
 
-  // FIX 3: Removed useEffect/Debouncing logic. Manual search only.
-  
   // 1. Data Fetching using debouncedQuery
   const { data: searchData, isLoading } = useQuery({
     queryKey: ['video-search', debouncedQuery],
     queryFn: () => searchVideosApi(debouncedQuery),
-    enabled: !!debouncedQuery, // Only run the query if debouncedQuery is not empty
+    enabled: !!debouncedQuery,
   });
   
   const searchResults = searchData?.videos || [];
@@ -92,22 +131,17 @@ export default function SearchVideosScreen() {
   // Manual Search Handler (Triggered by button press or Enter key)
   const handleManualSearch = () => {
       Keyboard.dismiss(); 
-      // Update debouncedQuery only when the user explicitly searches
       if (searchQuery.length > 0) {
           setDebouncedQuery(searchQuery); 
       } else {
-          setDebouncedQuery(''); // Clear results if query is empty
+          setDebouncedQuery(''); 
       }
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <Stack.Screen 
-        options={{ 
-            headerShown: false 
-        }} 
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       
       {/* Custom Search Header */}
       <View style={styles.searchHeader}>
@@ -123,7 +157,7 @@ export default function SearchVideosScreen() {
             onChangeText={setSearchQuery}
             autoFocus={true}
             returnKeyType="search"
-            onSubmitEditing={handleManualSearch} // <-- FIX 3: Manual search on Enter/Submit
+            onSubmitEditing={handleManualSearch} 
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
@@ -133,7 +167,7 @@ export default function SearchVideosScreen() {
         </View>
         <TouchableOpacity 
             style={styles.searchIcon}
-            onPress={handleManualSearch} // <-- FIX 3: Manual search on Search icon
+            onPress={handleManualSearch} 
         >
             <Search size={24} color={Colors.text} />
         </TouchableOpacity>
@@ -142,13 +176,14 @@ export default function SearchVideosScreen() {
       {/* Search Results / Loading */}
       <View style={{ flex: 1 }}>
         {isLoading && debouncedQuery ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
         ) : (
           <FlatList
             data={searchResults}
             keyExtractor={(item: any) => item.id.toString()}
             renderItem={({ item }) => <ResultVideoCard video={item} />}
-            contentContainerStyle={styles.videosList}
+            // Padding reduced here, padding is now handled by videoCard/thumbnail
+            contentContainerStyle={styles.videosList} 
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={() => {
                 if (debouncedQuery.length === 0) {
@@ -171,8 +206,11 @@ export default function SearchVideosScreen() {
   );
 }
 
+// --- STYLES (MATCHING VideosScreen.tsx FEED STYLE) ---
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  loader: { marginTop: 20 },
   
   // Header Styles
   searchHeader: {
@@ -182,11 +220,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#222',
-    paddingTop: 40, // Adjust based on your useSafeAreaInsets or header height
+    paddingTop: 40,
   },
-  backButton: {
-      padding: 4,
-  },
+  backButton: { padding: 4 },
   inputContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -202,46 +238,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 10,
   },
-  clearButton: {
-    padding: 8,
-  },
-  searchIcon: {
-    padding: 4,
-  },
+  clearButton: { padding: 8 },
+  searchIcon: { padding: 4 },
   
-  // List Styles
+  // Video List Container
   videosList: {
-    paddingTop: 10,
-    paddingHorizontal: 16,
     paddingBottom: 20,
+    // Removed paddingHorizontal here, let the card itself handle it if needed
   },
   
-  // Result Card Styles (Horizontal Layout - YouTube Search Result Style)
-  resultCard: {
-      flexDirection: 'row',
-      marginBottom: 16,
-      width: '100%', // FIX 2: Ensuring it takes full width of the container
+  // Video Card Styles (Matching VideosScreen.tsx feed)
+  videoCard: {
+    marginBottom: 20,
+    backgroundColor: Colors.background,
   },
   thumbnailContainer: {
-    width: (SCREEN_WIDTH * 0.4), // Approx 40% width for thumbnail
-    aspectRatio: 16/9,
-    borderRadius: 6,
-    marginRight: 10,
-    backgroundColor: '#333',
-    // Removed justifyContent/alignItems since Image covers the area now
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.5625, // 16:9 Ratio
+    backgroundColor: '#1A1A1A',
+    position: 'relative',
   },
-  thumbnail: { 
-    width: '100%', 
-    height: '100%', 
-    borderRadius: 6 
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  durationBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  durationText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   
-  textContainer: { 
-      flex: 1, 
-      paddingVertical: 2,
+  // Info Section
+  videoInfoRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16, // Added padding to match VideosScreen.tsx header/content padding
+    paddingVertical: 12,
+    gap: 12,
   },
-  title: { color: Colors.text, fontSize: 15, fontWeight: '500', lineHeight: 20 },
-  meta: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#333',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  videoDetailsColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  videoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+    lineHeight: 20,
+  },
+  metaText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
   
   // Empty State
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50, paddingHorizontal: 20 },
