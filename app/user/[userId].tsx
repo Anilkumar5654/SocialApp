@@ -3,12 +3,11 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   Settings,
   Grid,
-  Video,
-  Bookmark,
   UserPlus,
   UserMinus,
   MessageCircle,
   ArrowLeft,
+  Search, // Added Search icon for header
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -37,7 +36,9 @@ export default function UserProfileScreen() {
   const resolvedUserId = Array.isArray(userId) ? userId[0] : userId ?? '';
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'saved'>('posts');
+  
+  // FIX 1: activeTab ko sirf 'posts' par lock kiya gaya hai.
+  const [activeTab, setActiveTab] = useState<'posts'>('posts'); 
   const [isFollowing, setIsFollowing] = useState(false);
 
   const isOwnProfile = currentUser?.id === resolvedUserId;
@@ -48,16 +49,12 @@ export default function UserProfileScreen() {
     enabled: resolvedUserId.length > 0,
   });
 
+  // FIX 2: Only fetching POSTS content (Reels logic removed)
   const { data: postsData, isLoading: isLoadingPosts } = useQuery({
-    queryKey: ['user-content', resolvedUserId, activeTab],
+    queryKey: ['user-content', resolvedUserId, 'posts'], // Lock query key to 'posts'
     queryFn: async () => {
-      if (activeTab === 'posts') {
-        return api.users.getPosts(resolvedUserId, 1);
-      }
-      if (activeTab === 'reels') {
-        return api.users.getReels(resolvedUserId, 1);
-      }
-      return { posts: [], reels: [] };
+      // API call direct to getPosts
+      return api.users.getPosts(resolvedUserId, 1);
     },
     enabled: resolvedUserId.length > 0,
   });
@@ -102,18 +99,14 @@ export default function UserProfileScreen() {
   };
 
   const profile = profileData?.user;
-  const posts = activeTab === 'reels' ? ((postsData as any)?.reels || []) : ((postsData as any)?.posts || []);
+  // FIX 3: Posts data ko direct postsData.posts se uthaya gaya hai
+  const posts = postsData?.posts || []; 
 
   React.useEffect(() => {
     if (profile?.is_following !== undefined) {
       setIsFollowing(profile.is_following);
     }
   }, [profile?.is_following]);
-
-  console.log('[UserProfile] Active tab:', activeTab);
-  console.log('[UserProfile] Posts data:', postsData);
-  console.log('[UserProfile] Posts array:', posts);
-  console.log('[UserProfile] Profile data:', profile);
 
   if (isLoading) {
     return (
@@ -186,7 +179,11 @@ export default function UserProfileScreen() {
                   <Settings color={Colors.text} size={24} />
                 </TouchableOpacity>
               )
-            : undefined,
+            : () => (
+                <TouchableOpacity onPress={() => router.push('/search')} style={styles.headerButton}>
+                    <Search color={Colors.text} size={24} />
+                </TouchableOpacity>
+              ), // Added Search icon for consistency
         }}
       />
 
@@ -276,36 +273,18 @@ export default function UserProfileScreen() {
           )}
         </View>
 
+        {/* FIX 4: TabBar mein sirf POSTS icon rakha gaya hai */}
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
+            style={[styles.tab, styles.tabActive]} // Always active since it's the only functional tab
             onPress={() => setActiveTab('posts')}
           >
             <Grid
-              color={activeTab === 'posts' ? Colors.text : Colors.textMuted}
+              color={Colors.text} // Active color, since only one tab is shown
               size={24}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reels' && styles.tabActive]}
-            onPress={() => setActiveTab('reels')}
-          >
-            <Video
-              color={activeTab === 'reels' ? Colors.text : Colors.textMuted}
-              size={24}
-            />
-          </TouchableOpacity>
-          {isOwnProfile && (
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'saved' && styles.tabActive]}
-              onPress={() => setActiveTab('saved')}
-            >
-              <Bookmark
-                color={activeTab === 'saved' ? Colors.text : Colors.textMuted}
-                size={24}
-              />
-            </TouchableOpacity>
-          )}
+          {/* REELS Tab and Saved Tab removed */}
         </View>
 
         {isLoadingPosts ? (
@@ -317,23 +296,20 @@ export default function UserProfileScreen() {
             {posts.length === 0 ? (
               <View style={styles.emptyPosts}>
                 <Text style={styles.emptyPostsText}>
-                  {activeTab === 'reels' ? 'No reels yet' : activeTab === 'saved' ? 'No saved posts yet' : 'No posts yet'}
+                  No posts yet
                 </Text>
               </View>
             ) : (
-              posts.map((item: any, index: number) => (
+              posts.map((item: any) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.postItem}
                   onPress={() => {
-                    if (activeTab === 'reels') {
-                      router.push('/(tabs)/reels');
-                    } else {
+                      // FIX 5: Navigation logic simplified to Post Detail Screen only
                       router.push({
                         pathname: '/post/[postId]',
                         params: { postId: item.id },
                       });
-                    }
                   }}
                 >
                   <Image
@@ -342,18 +318,13 @@ export default function UserProfileScreen() {
                         item.images?.[0] ||
                           item.thumbnailUrl ||
                           item.thumbnail_url ||
-                          item.video_url ||
                           ''
                       ),
                     }}
                     style={styles.postImage}
                     contentFit="cover"
                   />
-                  {activeTab === 'reels' && (
-                    <View style={styles.reelIndicator}>
-                      <Text style={styles.reelIndicatorText}>▶</Text>
-                    </View>
-                  )}
+                  {/* Reel Indicator removed */}
                 </TouchableOpacity>
               ))
             )}
@@ -365,6 +336,7 @@ export default function UserProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ... (Styles remain the same)
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -522,12 +494,14 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
+    justifyContent: 'center', // Center the single tab
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   tab: {
-    flex: 1,
+    flex: 0, // Removed flex: 1
     paddingVertical: 12,
+    paddingHorizontal: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -548,22 +522,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: Colors.surface,
-  },
-  reelIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reelIndicatorText: {
-    color: Colors.text,
-    fontSize: 10,
-    marginLeft: 2,
   },
   postsLoadingContainer: {
     paddingVertical: 48,
