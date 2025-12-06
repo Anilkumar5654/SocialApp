@@ -26,6 +26,7 @@ import {
   Share as RNShare,
   ActionSheetIOS,
   Platform,
+  StatusBar // Added StatusBar import for cleanliness
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -96,7 +97,7 @@ function CommentsModal({
             renderItem={({ item }) => (
               <View style={styles.commentItem}>
                 <Image
-                  source={{ uri: item.user?.avatar || '' }}
+                  source={{ uri: getImageUri(item.user?.avatar || '') }} // Helper used here
                   style={styles.commentAvatar}
                 />
                 <View style={styles.commentContent}>
@@ -151,6 +152,14 @@ function CommentsModal({
     </Modal>
   );
 }
+
+
+// Helper function definition used by CommentsModal
+const getImageUri = (uri: string) => {
+    if (!uri) return '';
+    return uri.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
+};
+
 
 export default function PostDetailScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -313,11 +322,6 @@ export default function PostDetailScreen() {
     }
   };
 
-  const getImageUri = (uri: string) => {
-    if (!uri) return '';
-    return uri.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
-  };
-
   const post = postData?.post;
 
   React.useEffect(() => {
@@ -334,6 +338,9 @@ export default function PostDetailScreen() {
           options={{
             headerShown: true,
             title: 'Post',
+            // FIX: Dark Theme Header
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
                 <ArrowLeft color={Colors.text} size={24} />
@@ -356,6 +363,9 @@ export default function PostDetailScreen() {
           options={{
             headerShown: true,
             title: 'Post',
+            // FIX: Dark Theme Header
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
                 <ArrowLeft color={Colors.text} size={24} />
@@ -378,10 +388,14 @@ export default function PostDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <Stack.Screen
         options={{
           headerShown: true,
           title: 'Post',
+          // FIX: Dark Theme Header
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.text,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
               <ArrowLeft color={Colors.text} size={24} />
@@ -408,7 +422,7 @@ export default function PostDetailScreen() {
             <View style={styles.postUserDetails}>
               <View style={styles.userNameRow}>
                 <Text style={styles.postUsername}>{post.user.username}</Text>
-                {post.user.isVerified && (
+                {post.user.is_verified && (
                   <Text style={styles.verifiedBadge}>✓</Text>
                 )}
               </View>
@@ -544,12 +558,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  errorText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
   retryButton: {
     backgroundColor: Colors.primary,
     paddingHorizontal: 32,
@@ -560,6 +568,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text,
+  },
+  errorText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   postHeader: {
     flexDirection: 'row',
