@@ -7,7 +7,7 @@ import {
   UserMinus,
   MessageCircle,
   ArrowLeft,
-  Search, // Added Search icon for header
+  Search, 
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -19,6 +19,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  StatusBar
 } from 'react-native';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +31,12 @@ import { useAuth } from '@/contexts/AuthContext';
 const { width } = Dimensions.get('window');
 const POST_SIZE = (width - 3) / 3;
 
+// Helper function (Assuming it's available or defined nearby)
+const getImageUri = (uri: string) => {
+    if (!uri) return '';
+    return uri.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
+};
+
 export default function UserProfileScreen() {
 
   const { userId } = useLocalSearchParams<{ userId?: string }>();
@@ -37,7 +44,7 @@ export default function UserProfileScreen() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   
-  // FIX 1: activeTab ko sirf 'posts' par lock kiya gaya hai.
+  // Tab state locked to 'posts'
   const [activeTab, setActiveTab] = useState<'posts'>('posts'); 
   const [isFollowing, setIsFollowing] = useState(false);
 
@@ -49,11 +56,10 @@ export default function UserProfileScreen() {
     enabled: resolvedUserId.length > 0,
   });
 
-  // FIX 2: Only fetching POSTS content (Reels logic removed)
+  // Fetching POSTS content only
   const { data: postsData, isLoading: isLoadingPosts } = useQuery({
-    queryKey: ['user-content', resolvedUserId, 'posts'], // Lock query key to 'posts'
+    queryKey: ['user-content', resolvedUserId, 'posts'], 
     queryFn: async () => {
-      // API call direct to getPosts
       return api.users.getPosts(resolvedUserId, 1);
     },
     enabled: resolvedUserId.length > 0,
@@ -93,13 +99,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  const getImageUri = (uri: string) => {
-    if (!uri) return '';
-    return uri.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
-  };
-
   const profile = profileData?.user;
-  // FIX 3: Posts data ko direct postsData.posts se uthaya gaya hai
   const posts = postsData?.posts || []; 
 
   React.useEffect(() => {
@@ -115,6 +115,9 @@ export default function UserProfileScreen() {
           options={{
             headerShown: true,
             title: 'Profile',
+            // FIX: Dark Theme Header
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
                 <ArrowLeft color={Colors.text} size={24} />
@@ -137,6 +140,9 @@ export default function UserProfileScreen() {
           options={{
             headerShown: true,
             title: 'Profile',
+            // FIX: Dark Theme Header
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
             headerLeft: () => (
               <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
                 <ArrowLeft color={Colors.text} size={24} />
@@ -161,10 +167,14 @@ export default function UserProfileScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <Stack.Screen
         options={{
           headerShown: true,
           title: profile.username || 'Profile',
+          // FIX: Dark Theme Header
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.text,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
               <ArrowLeft color={Colors.text} size={24} />
@@ -183,7 +193,7 @@ export default function UserProfileScreen() {
                 <TouchableOpacity onPress={() => router.push('/search')} style={styles.headerButton}>
                     <Search color={Colors.text} size={24} />
                 </TouchableOpacity>
-              ), // Added Search icon for consistency
+              ),
         }}
       />
 
@@ -273,18 +283,17 @@ export default function UserProfileScreen() {
           )}
         </View>
 
-        {/* FIX 4: TabBar mein sirf POSTS icon rakha gaya hai */}
+        {/* TabBar: Only Posts Tab */}
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tab, styles.tabActive]} // Always active since it's the only functional tab
+            style={[styles.tab, styles.tabActive]} 
             onPress={() => setActiveTab('posts')}
           >
             <Grid
-              color={Colors.text} // Active color, since only one tab is shown
+              color={Colors.text} 
               size={24}
             />
           </TouchableOpacity>
-          {/* REELS Tab and Saved Tab removed */}
         </View>
 
         {isLoadingPosts ? (
@@ -305,7 +314,6 @@ export default function UserProfileScreen() {
                   key={item.id}
                   style={styles.postItem}
                   onPress={() => {
-                      // FIX 5: Navigation logic simplified to Post Detail Screen only
                       router.push({
                         pathname: '/post/[postId]',
                         params: { postId: item.id },
@@ -324,7 +332,6 @@ export default function UserProfileScreen() {
                     style={styles.postImage}
                     contentFit="cover"
                   />
-                  {/* Reel Indicator removed */}
                 </TouchableOpacity>
               ))
             )}
@@ -336,7 +343,6 @@ export default function UserProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... (Styles remain the same)
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -494,12 +500,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    justifyContent: 'center', // Center the single tab
+    justifyContent: 'center', 
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   tab: {
-    flex: 0, // Removed flex: 1
+    flex: 0, 
     paddingVertical: 12,
     paddingHorizontal: 30,
     alignItems: 'center',
