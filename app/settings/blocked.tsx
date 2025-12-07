@@ -93,6 +93,7 @@ interface BlockedUserItemProps {
 const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUnblocking }) => {
   const isCurrentlyUnblocking = isUnblocking;
   
+  // You might want to display the user's avatar image here instead of a placeholder
   return (
     <View style={styles.userItem}>
       {/* Avatar Placeholder: Use first letter of username for simplicity */}
@@ -122,6 +123,13 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
 
 // --- Main Screen Component ---
 
+// Define the expected server response structure
+interface BlockedUsersResponse {
+    success: boolean;
+    data: BlockedUser[];
+    message?: string;
+}
+
 export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
@@ -132,6 +140,10 @@ export default function BlockedUsersScreen() {
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
     queryKey: ['blockedUsersList'],
     queryFn: api.settings.getBlockedUsers,
+    
+    // 💡 FIX: This selects the 'data' array from the server response object 
+    // ({success: true, data: [...]}) ensuring the data variable is the correct array type.
+    select: (response: BlockedUsersResponse) => response.data,
   });
 
   // 2. Unblock Mutation (POST /settings/users/unblock)
@@ -152,13 +164,11 @@ export default function BlockedUsersScreen() {
         return { previousBlockedUsers };
     },
     onSuccess: () => {
-         // Use custom toast/snackbar implementation here for success notification
          console.log('User successfully unblocked and list updated.');
     },
     onError: (err: any, userIdToUnblock, context) => {
         // Rollback on failure
         queryClient.setQueryData(['blockedUsersList'], context?.previousBlockedUsers);
-        // Set a theme-friendly error message
         setErrorMessage(err.message || 'Failed to unblock user. Please try again.'); 
     },
     onSettled: () => {
@@ -198,6 +208,8 @@ export default function BlockedUsersScreen() {
       );
   }
   
+  // We check if blockedUsers is null/undefined OR if it's an empty array
+  // We explicitly check for blockedUsers (which is the array now)
   if (isError || !blockedUsers) {
        return (
           <View style={[styles.container, styles.center]}>
@@ -239,6 +251,7 @@ export default function BlockedUsersScreen() {
       )}
 
       <FlatList
+        // The data prop now correctly receives an array of BlockedUser objects
         data={blockedUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
