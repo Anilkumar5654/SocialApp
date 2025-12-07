@@ -12,17 +12,15 @@ import {
 } from 'react-native';
 import { Users, EyeOff, MessageSquare, Activity, UserPlus } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
 import Colors from '@/constants/colors';
-import { api } from '@/services/api'; 
+import { api } from '@/services/api';
 
 // --- TYPE DEFINITIONS for Privacy State ---
 interface PrivacySettings {
-    is_private_account: boolean;
-    posts_visibility: 'public' | 'followers'; // Maps to posts.feed_scope
-    reels_visibility: 'public' | 'followers'; // Maps to reels.visibility
-    allow_comments: 'everyone' | 'followers' | 'following';
-    show_activity_status: boolean; // Maps to users.last_active logic
+    is_private_account: boolean; // Maps to users.is_private
+    posts_visibility: 'public' | 'followers'; // Maps to users.allow_global (1=public, 0=followers)
+    allow_comments: 'everyone' | 'followers' | 'following'; // Maps to users.allow_comments
+    show_activity_status: boolean; // Maps to users.show_activity_status
 }
 
 // --- Reusable Component for Toggle Switches ---
@@ -52,6 +50,7 @@ const SettingToggleItem: React.FC<SettingToggleItemProps> = ({
         <Text style={[styles.itemTitle, isDisabled && styles.itemTitleDisabled]}>{title}</Text>
         <Text style={styles.itemSubtitle}>{subtitle}</Text>
       </View>
+    
       <Switch
         onValueChange={onValueChange}
         value={value}
@@ -110,18 +109,18 @@ const RadioGroupItem: React.FC<RadioGroupItemProps> = ({
 
 export default function PrivacySettingsScreen() {
   const queryClient = useQueryClient();
-
-  // 1. Fetch current settings state using the finalized API call
+  
+  // 1. Fetch current settings state
   const { data: settings, isLoading, isError } = useQuery<PrivacySettings>({
     queryKey: ['privacySettings'],
     queryFn: api.settings.getPrivacySettings,
   });
 
-  // 2. Mutation for updating settings using the finalized API call
+  // 2. Mutation for updating settings
   const mutation = useMutation({
     mutationFn: api.settings.updatePrivacySettings,
     onMutate: async (newSettings) => {
-        // Optimistic update: Save previous value and update cache immediately
+        // Optimistic update
         await queryClient.cancelQueries({ queryKey: ['privacySettings'] });
         const previousSettings = queryClient.getQueryData<PrivacySettings>(['privacySettings']);
         
@@ -133,7 +132,7 @@ export default function PrivacySettingsScreen() {
         return { previousSettings };
     },
     onError: (err, newSettings, context) => {
-        // Rollback to previous state on failure
+        // Rollback
         queryClient.setQueryData(['privacySettings'], context?.previousSettings);
         Alert.alert('Error', 'Failed to save settings. Please try again.');
     },
@@ -212,9 +211,9 @@ export default function PrivacySettingsScreen() {
           )}
         </View>
 
-        {/* --- 2. Content Visibility (Schema Driven) --- */}
+        {/* --- 2. Content Visibility (POSTS ONLY) --- */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Content Visibility</Text>
+          <Text style={styles.sectionTitle}>Content Visibility (Posts)</Text>
           <RadioGroupItem
             title="Who Can See My Posts"
             options={[
@@ -223,16 +222,6 @@ export default function PrivacySettingsScreen() {
             ]}
             selectedValue={settings.posts_visibility}
             onSelect={(val) => handleUpdate('posts_visibility', val as 'public' | 'followers')}
-            isDisabled={isSaving}
-          />
-          <RadioGroupItem
-            title="Who Can See My Reels"
-            options={[
-              { label: 'Everyone (Public)', value: 'public' },
-              { label: 'Followers Only', value: 'followers' },
-            ]}
-            selectedValue={settings.reels_visibility}
-            onSelect={(val) => handleUpdate('reels_visibility', val as 'public' | 'followers')}
             isDisabled={isSaving}
           />
         </View>
@@ -263,8 +252,8 @@ export default function PrivacySettingsScreen() {
               style={styles.linkedItem}
               onPress={() => router.push('/settings/blocked')} 
           >
-              <Users color={Colors.primary} size={20} style={styles.linkedIcon} />
-              <Text style={styles.linkedItemText}>Blocked Users List</Text>
+            <Users color={Colors.primary} size={20} style={styles.linkedIcon} />
+            <Text style={styles.linkedItemText}>Blocked Users List</Text>
           </TouchableOpacity>
         </View>
 
