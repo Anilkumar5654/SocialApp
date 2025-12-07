@@ -42,6 +42,7 @@ class ApiClient {
     }
 
     if (this.token) {
+      // Sending token in Authorization header
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
@@ -49,7 +50,7 @@ class ApiClient {
       Object.assign(headers, options.headers);
     }
 
-    // <<< Capture and parse the request body for logging >>>
+    // Capture and parse the request body for logging
     let requestBody: any = undefined;
     const rawBodyString = (options.body && typeof options.body === 'string') ? options.body : undefined;
 
@@ -62,7 +63,7 @@ class ApiClient {
         requestBody = rawBodyString;
       }
     }
-    // <<< END FIX >>>
+    // End Capture
 
     if (apiDebugLogger) {
       apiDebugLogger({
@@ -74,7 +75,6 @@ class ApiClient {
     }
 
     try {
-      // Use the clean endpoint here
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers,
@@ -107,6 +107,7 @@ class ApiClient {
           });
         }
         
+        // Throw 401 error to be caught by global session handler (if implemented)
         throw { message: errorMessage, status: response.status };
       }
 
@@ -290,6 +291,7 @@ class ApiClient {
           method: 'POST', 
           body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) 
       }),
+      // 2FA Calls (Path: /settings/security/2fa/...)
       get2FAStatus: async () => this.request('/settings/security/2fa/status'),
       generate2FASecret: async () => this.request('/settings/security/2fa/generate-secret', { method: 'POST' }),
       enable2FA: async (secret: string, code: string) => this.request('/settings/security/2fa/enable', { 
