@@ -16,35 +16,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
 
-// --- TYPE DEFINITIONS for Notification State (Maps to notifications.type) ---
+// --- TYPE DEFINITIONS for Notification State ---
 interface NotificationPreferences {
     allow_global: boolean;
-    allow_likes: boolean;      // type: 'like'
-    allow_comments: boolean;   // type: 'comment'
-    allow_follows: boolean;    // type: 'follow'
-    allow_mentions: boolean;   // type: 'mention'
-    allow_video_uploads: boolean; // type: 'video'
-    allow_dm_requests: boolean; // type: 'dm_request'
+    allow_likes: boolean;      
+    allow_comments: boolean;   
+    allow_follows: boolean;    
+    allow_mentions: boolean;   
+    allow_video_uploads: boolean; 
+    allow_dm_requests: boolean; 
 }
 
-// --- MOCK API FUNCTION (FINAL CORRECTED SYNTAX) ---
-api.settings.getNotifications = (async (): Promise<NotificationPreferences> => {
-    await new Promise(resolve => setTimeout(resolve, 500)); 
-    // FIX APPLIED: Wrapping the function in parentheses ()
-    return {
-        allow_global: true,
-        allow_likes: true,
-        allow_comments: true,
-        allow_follows: true,
-        allow_mentions: true,
-        allow_video_uploads: true,
-        allow_dm_requests: true,
-    };
-}) as any;
-
-
 // --- Reusable Component for Notification Toggles ---
-
 interface NotificationToggleItemProps {
   title: string;
   subtitle: string;
@@ -94,12 +77,16 @@ export default function NotificationsScreen() {
   // 1. Fetch current notification preferences
   const { data: preferences, isLoading, isError } = useQuery<NotificationPreferences>({
     queryKey: ['notificationPreferences'],
-    queryFn: api.settings.getNotifications,
+    queryFn: async () => {
+        // Assuming API returns { success: true, preferences: {...} }
+        const result = await api.settings.getNotifications();
+        return result.preferences; 
+    },
   });
 
   // 2. Mutation for updating preferences
   const mutation = useMutation({
-    mutationFn: api.settings.updateNotifications,
+    mutationFn: (newPreferences: Partial<NotificationPreferences>) => api.settings.updateNotifications(newPreferences),
     onMutate: async (newPreferences) => {
         // Optimistic update
         await queryClient.cancelQueries({ queryKey: ['notificationPreferences'] });
@@ -124,10 +111,10 @@ export default function NotificationsScreen() {
 
   // Centralized update handler
   const handleUpdate = (key: keyof NotificationPreferences, value: any) => {
-    // If turning off global, ensure all sub-toggles are also off in the mutation payload
     let updatePayload: Partial<NotificationPreferences> = { [key]: value };
 
     if (key === 'allow_global' && value === false) {
+        // If disabling global, disable all sub-toggles locally (optimistic update)
         updatePayload = {
             allow_global: false,
             allow_likes: false,
@@ -294,7 +281,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 40,
   },
-  // --- Saving Overlay ---
   savingOverlay: {
     position: 'absolute',
     top: 0,
@@ -311,7 +297,6 @@ const styles = StyleSheet.create({
       marginTop: 8,
       fontSize: 16,
   },
-  // --- Section Styles ---
   section: {
     paddingVertical: 8,
     borderBottomWidth: 8,
@@ -326,7 +311,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     letterSpacing: 0.5,
   },
-  // --- Item Container Styles ---
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
