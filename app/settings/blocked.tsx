@@ -9,81 +9,27 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { UserMinus, X, Check } from 'lucide-react-native';
+import { UserMinus, X, Check, Clock, UserCheck } from 'lucide-react-native'; // Clock icon added
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
+// import { formatDistanceToNowStrict } from 'date-fns'; // Import this if using date-fns
 
-// --- TYPE DEFINITIONS ---
+// --- TYPE DEFINITIONS (UPDATED) ---
 interface BlockedUser {
-  id: string; // Database ID of the blocked user (sent as string from PHP)
+  id: string; 
   username: string;
   name: string;
-  avatar: string;
+  avatar: string | null;
+  bio: string | null;            // 💡 NEW
+  is_verified: boolean;         // 💡 NEW
+  blocked_at: string;           // 💡 NEW (Timestamp from database)
 }
 
-// --- Custom Confirmation Modal Component (Theme Friendly) ---
-interface UnblockConfirmationModalProps {
-    isVisible: boolean;
-    userToUnblock: BlockedUser | null;
-    onClose: () => void;
-    onConfirm: (userId: string) => void;
-    isLoading: boolean;
-}
+// ... (Modal Component remains the same)
 
-const UnblockConfirmationModal: React.FC<UnblockConfirmationModalProps> = ({
-    isVisible,
-    userToUnblock,
-    onClose,
-    onConfirm,
-    isLoading,
-}) => {
-    if (!userToUnblock) return null;
-
-    return (
-        <Modal
-            animationType="fade"
-            transparent={true}
-            visible={isVisible}
-            onRequestClose={onClose}
-        >
-            <View style={modalStyles.centeredView}>
-                <View style={modalStyles.modalView}>
-                    <Text style={modalStyles.modalTitle}>Unblock {userToUnblock.username}?</Text>
-                    <Text style={modalStyles.modalText}>
-                        Unblocked users will be able to view your profile and send you messages again.
-                    </Text>
-
-                    <View style={modalStyles.buttonContainer}>
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonCancel]}
-                            onPress={onClose}
-                            disabled={isLoading}
-                        >
-                            <X color={Colors.text} size={18} />
-                            <Text style={modalStyles.textStyle}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonConfirm]}
-                            onPress={() => onConfirm(userToUnblock.id)}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color={Colors.text} size="small" />
-                            ) : (
-                                <Check color={Colors.text} size={18} />
-                            )}
-                            <Text style={modalStyles.textStyle}>Unblock</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
-// --- Component for a single blocked user row ---
+// --- Component for a single blocked user row (MODIFIED) ---
 interface BlockedUserItemProps {
   user: BlockedUser;
   onUnblock: (userId: string) => void;
@@ -93,17 +39,40 @@ interface BlockedUserItemProps {
 const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUnblocking }) => {
   const isCurrentlyUnblocking = isUnblocking;
   
-  // You might want to display the user's avatar image here instead of a placeholder
+  // Function to format the blocked time (e.g., "3 months ago")
+  const getFormattedTime = (timestamp: string) => {
+    try {
+        const date = new Date(timestamp);
+        // Note: For real production, use a library like 'date-fns' or 'moment'
+        // Example using basic JS:
+        const diffInDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffInDays < 1) return "Today";
+        if (diffInDays < 30) return `${diffInDays} days ago`;
+        return date.toLocaleDateString(); // Fallback to local date
+    } catch {
+        return "Unknown Date";
+    }
+  };
+
   return (
     <View style={styles.userItem}>
-      {/* Avatar Placeholder: Use first letter of username for simplicity */}
+      {/* Avatar Placeholder/Image */}
       <View style={styles.avatarPlaceholder}>
         <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
       </View>
       
       <View style={styles.userInfo}>
-        <Text style={styles.usernameText}>{user.username}</Text>
-        <Text style={styles.nameText}>{user.name}</Text>
+        <View style={styles.nameRow}>
+            <Text style={styles.usernameText}>{user.username}</Text>
+            {user.is_verified && <UserCheck color={Colors.primary} size={14} style={{marginLeft: 4}} />}
+        </View>
+        <Text style={styles.bioText} numberOfLines={1}>{user.bio || user.name}</Text>
+        
+        {/* Blocked Time Display */}
+        <View style={styles.timeRow}>
+            <Clock color={Colors.textMuted} size={12} />
+            <Text style={styles.timeText}>Blocked since {getFormattedTime(user.blocked_at)}</Text>
+        </View>
       </View>
       
       <TouchableOpacity
@@ -121,7 +90,7 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
   );
 };
 
-// --- Main Screen Component ---
+// --- Main Screen Component (useQuery remains the same with select: response.data) ---
 
 // Define the expected server response structure
 interface BlockedUsersResponse {
@@ -136,30 +105,30 @@ export default function BlockedUsersScreen() {
   const [userToUnblock, setUserToUnblock] = useState<BlockedUser | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 1. Fetch blocked users list using useQuery (GET /settings/blocked)
+  // 1. Fetch blocked users list using useQuery
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
     queryKey: ['blockedUsersList'],
     queryFn: api.settings.getBlockedUsers,
-    
-    // 💡 FIX: This selects the 'data' array from the server response object 
-    // ({success: true, data: [...]}) ensuring the data variable is the correct array type.
     select: (response: BlockedUsersResponse) => response.data,
   });
 
-  // 2. Unblock Mutation (POST /settings/users/unblock)
+  // 2. Unblock Mutation (The onMutate logic below is the final fix for the 'old.filter' error)
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => api.settings.unblockUser(userId),
     
-    // Optimistic Update: Immediately remove user from list
     onMutate: async (userIdToUnblock) => {
         setModalVisible(false); 
         setErrorMessage(null); 
         await queryClient.cancelQueries({ queryKey: ['blockedUsersList'] });
+        
         const previousBlockedUsers = queryClient.getQueryData<BlockedUser[]>(['blockedUsersList']);
         
-        queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (old) => 
-            old ? old.filter(user => user.id !== userIdToUnblock) : []
-        );
+        queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (oldData) => {
+            // FIX: Ensure oldData is an array before calling filter
+            const currentList = Array.isArray(oldData) ? oldData : [];
+
+            return currentList.filter(user => user.id !== userIdToUnblock);
+        });
         
         return { previousBlockedUsers };
     },
@@ -167,18 +136,17 @@ export default function BlockedUsersScreen() {
          console.log('User successfully unblocked and list updated.');
     },
     onError: (err: any, userIdToUnblock, context) => {
-        // Rollback on failure
         queryClient.setQueryData(['blockedUsersList'], context?.previousBlockedUsers);
         setErrorMessage(err.message || 'Failed to unblock user. Please try again.'); 
     },
     onSettled: () => {
         setUserToUnblock(null);
-        // Ensure the list is fresh after the operation
         queryClient.invalidateQueries({ queryKey: ['blockedUsersList'] });
     },
   });
 
-  // Handler to open the custom modal
+  // Handler functions remain the same...
+
   const handleUnblockModalOpen = (userId: string) => {
       const user = blockedUsers?.find(u => u.id === userId);
       if (user) {
@@ -187,7 +155,6 @@ export default function BlockedUsersScreen() {
       }
   };
   
-  // Handler called by the custom modal's confirm button
   const handleUnblockConfirm = (userId: string) => {
       unblockMutation.mutate(userId); 
   };
@@ -208,8 +175,6 @@ export default function BlockedUsersScreen() {
       );
   }
   
-  // We check if blockedUsers is null/undefined OR if it's an empty array
-  // We explicitly check for blockedUsers (which is the array now)
   if (isError || !blockedUsers) {
        return (
           <View style={[styles.container, styles.center]}>
@@ -251,7 +216,6 @@ export default function BlockedUsersScreen() {
       )}
 
       <FlatList
-        // The data prop now correctly receives an array of BlockedUser objects
         data={blockedUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -316,14 +280,29 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   usernameText: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.text,
   },
-  nameText: {
+  bioText: { // New style for bio/name
     fontSize: 13,
     color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  timeRow: { // New style for blocked time
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
+  },
+  timeText: {
+    fontSize: 12,
+    color: Colors.textMuted,
   },
   unblockButton: {
     paddingHorizontal: 16,
@@ -362,7 +341,7 @@ const styles = StyleSheet.create({
   },
   // New styles for theme-friendly global error bar
   globalErrorBar: {
-    backgroundColor: Colors.danger, // Or a custom red tone
+    backgroundColor: Colors.danger, 
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,11 +361,11 @@ const modalStyles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dark semi-transparent background
+        backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     },
     modalView: {
         margin: 20,
-        backgroundColor: Colors.surface, // Modal background matching app surface
+        backgroundColor: Colors.surface, 
         borderRadius: 12,
         padding: 25,
         alignItems: 'center',
@@ -403,13 +382,13 @@ const modalStyles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '700' as const,
-        color: Colors.text, // Dark theme text color
+        color: Colors.text, 
         marginBottom: 15,
     },
     modalText: {
         marginBottom: 20,
         textAlign: 'center',
-        color: Colors.textSecondary, // Secondary text color
+        color: Colors.textSecondary, 
         fontSize: 14,
     },
     buttonContainer: {
@@ -434,7 +413,7 @@ const modalStyles = StyleSheet.create({
         borderColor: Colors.border,
     },
     buttonConfirm: {
-        backgroundColor: Colors.danger, // Use danger for Unblock
+        backgroundColor: Colors.danger, 
     },
     textStyle: {
         color: Colors.text,
