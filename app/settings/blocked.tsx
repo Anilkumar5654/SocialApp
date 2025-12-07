@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router'; // useRouter added
 import React, { useState } from 'react';
 import {
   View,
@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   Modal,
+  Image, // Image component added
 } from 'react-native';
 import { UserMinus, X, Check, Clock, UserCheck } from 'lucide-react-native'; 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,26 +16,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
 
+// ⚠️ ध्यान दें: आपको अपनी API/फ़ाइल सर्वर का बेस URL यहाँ या आपकी config फ़ाइल में परिभाषित करना होगा
+// मैंने यहाँ एक उदाहरण URL दिया है। इसे अपनी सही इमेज/प्रोफ़ाइल फ़ोल्डर URL से बदलें।
+const BASE_AVATAR_URL = 'https://yourdomain.com/uploads/'; 
+
 // --- TYPE DEFINITIONS ---
 interface BlockedUser {
   id: string; 
   username: string;
   name: string;
-  avatar: string | null;
+  avatar: string | null;         // Avatar is a path (e.g., 'profile/file.jpg')
   bio: string | null;            
   is_verified: boolean;         
   blocked_at: string;           
 }
 
-// Define the expected server response structure
 interface BlockedUsersResponse {
     success: boolean;
     data: BlockedUser[];
     message?: string;
 }
 
-// --- Custom Confirmation Modal Component (Theme Friendly) ---
-// 💡 NOTE: This component is defined *outside* the main export function.
+// --- Custom Confirmation Modal Component (Remains the same) ---
 interface UnblockConfirmationModalProps {
     isVisible: boolean;
     userToUnblock: BlockedUser | null;
@@ -94,15 +97,20 @@ const UnblockConfirmationModal: React.FC<UnblockConfirmationModalProps> = ({
     );
 };
 
-// --- Component for a single blocked user row ---
-// 💡 NOTE: This component is defined *outside* the main export function.
+// --- Component for a single blocked user row (MODIFIED) ---
 interface BlockedUserItemProps {
   user: BlockedUser;
   onUnblock: (userId: string) => void;
   isUnblocking: boolean;
+  onViewProfile: (userId: string) => void; // 💡 ADDED: Profile click handler
 }
 
-const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUnblocking }) => {
+const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ 
+    user, 
+    onUnblock, 
+    isUnblocking, 
+    onViewProfile // Destructured
+}) => {
   const isCurrentlyUnblocking = isUnblocking;
   
   const getFormattedTime = (timestamp: string) => {
@@ -117,27 +125,45 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
     }
   };
 
+  const avatarSource = user.avatar 
+    ? { uri: `${BASE_AVATAR_URL}${user.avatar}` } 
+    : null;
+
+
   return (
     <View style={styles.userItem}>
-      {/* Avatar Placeholder/Image */}
-      <View style={styles.avatarPlaceholder}>
-        <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
-      </View>
       
-      <View style={styles.userInfo}>
-        <View style={styles.nameRow}>
-            <Text style={styles.usernameText}>{user.username}</Text>
-            {user.is_verified && <UserCheck color={Colors.primary} size={14} style={{marginLeft: 4}} />}
-        </View>
-        <Text style={styles.bioText} numberOfLines={1}>{user.bio || user.name}</Text>
+      {/* 💡 FIX 1: Wrap Avatar and Info for Profile Navigation */}
+      <TouchableOpacity
+        style={styles.profileArea} // New style for flex layout
+        onPress={() => onViewProfile(user.id)}
+      >
         
-        {/* Blocked Time Display */}
-        <View style={styles.timeRow}>
-            <Clock color={Colors.textMuted} size={12} />
-            <Text style={styles.timeText}>Blocked since {getFormattedTime(user.blocked_at)}</Text>
+        {/* Avatar Display Logic */}
+        {avatarSource ? (
+            <Image source={avatarSource} style={styles.avatarImage} />
+        ) : (
+            <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
+            </View>
+        )}
+        
+        <View style={styles.userInfo}>
+            <View style={styles.nameRow}>
+                <Text style={styles.usernameText}>{user.username}</Text>
+                {user.is_verified && <UserCheck color={Colors.primary} size={14} style={{marginLeft: 4}} />}
+            </View>
+            <Text style={styles.bioText} numberOfLines={1}>{user.bio || user.name}</Text>
+            
+            {/* Blocked Time Display */}
+            <View style={styles.timeRow}>
+                <Clock color={Colors.textMuted} size={12} />
+                <Text style={styles.timeText}>Blocked since {getFormattedTime(user.blocked_at)}</Text>
+            </View>
         </View>
-      </View>
+      </TouchableOpacity>
       
+      {/* Unblock Button (kept separate for distinct action) */}
       <TouchableOpacity
         style={styles.unblockButton}
         onPress={() => onUnblock(user.id)}
@@ -157,20 +183,18 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
 
 export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
+  const router = useRouter(); // 💡 ADDED: Hook for navigation
   const [modalVisible, setModalVisible] = useState(false);
   const [userToUnblock, setUserToUnblock] = useState<BlockedUser | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 1. Fetch blocked users list using useQuery
+
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
     queryKey: ['blockedUsersList'],
     queryFn: api.settings.getBlockedUsers,
-    
-    // FIX 1: Selects the 'data' array from the server response object
     select: (response: BlockedUsersResponse) => response.data,
   });
 
-  // 2. Unblock Mutation (Fixes the "old.filter is not a function" error)
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => api.settings.unblockUser(userId),
     
@@ -182,9 +206,7 @@ export default function BlockedUsersScreen() {
         const previousBlockedUsers = queryClient.getQueryData<BlockedUser[]>(['blockedUsersList']);
         
         queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (oldData) => {
-            // FIX 2: Ensures oldData is an array before calling filter
             const currentList = Array.isArray(oldData) ? oldData : [];
-
             return currentList.filter(user => user.id !== userIdToUnblock);
         });
         
@@ -203,8 +225,6 @@ export default function BlockedUsersScreen() {
     },
   });
 
-  // Handler functions remain the same...
-
   const handleUnblockModalOpen = (userId: string) => {
       const user = blockedUsers?.find(u => u.id === userId);
       if (user) {
@@ -215,6 +235,13 @@ export default function BlockedUsersScreen() {
   
   const handleUnblockConfirm = (userId: string) => {
       unblockMutation.mutate(userId); 
+  };
+  
+  // 💡 NEW HANDLER: For navigation to user profile
+  const handleViewProfile = (userId: string) => {
+      // Assuming your profile route is structured like /profile/[id]
+      router.push(`/profile/${userId}`); 
+      // Adjust the route format as per your application's routing structure
   };
   
   const renderEmptyList = () => (
@@ -255,7 +282,6 @@ export default function BlockedUsersScreen() {
         }}
       />
       
-      {/* 💡 This component is now correctly scoped and available */}
       <UnblockConfirmationModal
           isVisible={modalVisible}
           userToUnblock={userToUnblock}
@@ -264,7 +290,6 @@ export default function BlockedUsersScreen() {
           isLoading={unblockMutation.isPending}
       />
       
-      {/* Theme-friendly error message display */}
       {errorMessage && (
         <View style={styles.globalErrorBar}>
           <Text style={styles.globalErrorText}>{errorMessage}</Text>
@@ -282,6 +307,7 @@ export default function BlockedUsersScreen() {
             user={item} 
             onUnblock={handleUnblockModalOpen} 
             isUnblocking={unblockMutation.isPending && userToUnblock?.id === item.id}
+            onViewProfile={handleViewProfile} // 💡 PASSED: New handler
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -290,6 +316,8 @@ export default function BlockedUsersScreen() {
     </View>
   );
 }
+
+// --- STYLES (MODIFIED) ---
 
 const styles = StyleSheet.create({
   container: {
@@ -321,6 +349,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
+  },
+  // 💡 NEW STYLE: To allow the profile area to take up most space and be clickable
+  profileArea: { 
+    flex: 1, 
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // 💡 NEW STYLE: For the actual Image component
+  avatarImage: { 
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
   avatarPlaceholder: {
     width: 40,
@@ -372,6 +413,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.textMuted,
     minWidth: 100,
     alignItems: 'center',
+    // Push the button to the right of the profile area
+    marginLeft: 10, 
   },
   unblockButtonText: {
     color: Colors.text,
@@ -398,7 +441,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
   },
-  // New styles for theme-friendly global error bar
   globalErrorBar: {
     backgroundColor: Colors.danger, 
     padding: 12,
@@ -416,6 +458,7 @@ const styles = StyleSheet.create({
 });
 
 const modalStyles = StyleSheet.create({
+    // ... (Modal Styles remain the same)
     centeredView: {
         flex: 1,
         justifyContent: 'center',
