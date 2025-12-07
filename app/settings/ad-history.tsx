@@ -4,37 +4,37 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   FlatList,
   Alert,
 } from 'react-native';
 import { BarChart2, Zap, Hand, Trash2 } from 'lucide-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
+import { api } from '@/services/api'; 
 
-// --- MOCK DATA ---
+// --- TYPE DEFINITIONS ---
 interface AdInteraction {
     id: number;
     date: string;
     advertiser: string;
-    action: 'Viewed' | 'Clicked'; // Maps to ad_impressions or ad_clicks
+    action: 'Viewed' | 'Clicked';
 }
 
-const mockAdHistory: AdInteraction[] = [
-  { id: 1, date: '2025-12-06', advertiser: 'Tech Innovations Inc.', action: 'Clicked' },
-  { id: 2, date: '2025-12-05', advertiser: 'Fashion Store XYZ', action: 'Viewed' },
-  { id: 3, date: '2025-12-05', advertiser: 'Gaming Studio Alpha', action: 'Clicked' },
-  { id: 4, date: '2025-12-04', advertiser: 'Local Coffee Shop', action: 'Viewed' },
-  { id: 5, date: '2025-12-03', advertiser: 'Tech Innovations Inc.', action: 'Viewed' },
-];
+// --- MOCK API ---
+// NOTE: In a real app, this would fetch from ad_impressions/ad_clicks tables.
+api.settings.getAdHistory = async (): Promise<AdInteraction[]> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return [
+      { id: 1, date: '2025-12-06', advertiser: 'Tech Innovations Inc.', action: 'Clicked' },
+      { id: 2, date: '2025-12-05', advertiser: 'Fashion Store XYZ', action: 'Viewed' },
+      { id: 3, date: '2025-12-05', advertiser: 'Gaming Studio Alpha', action: 'Clicked' },
+    ];
+};
 
-// --- Component for a single Ad Interaction row ---
-interface AdHistoryItemProps {
-  item: AdInteraction;
-}
-
-const AdHistoryItem: React.FC<AdHistoryItemProps> = ({ item }) => {
+// --- Component for a single Ad Interaction row (unchanged) ---
+const AdHistoryItem: React.FC<{ item: AdInteraction }> = ({ item }) => {
   const isClicked = item.action === 'Clicked';
   const icon = isClicked ? Hand : Zap;
   const iconColor = isClicked ? Colors.primary : Colors.info;
@@ -60,7 +60,36 @@ const AdHistoryItem: React.FC<AdHistoryItemProps> = ({ item }) => {
 // --- Main Screen Component ---
 
 export default function AdHistoryScreen() {
-  const [history, setHistory] = useState(mockAdHistory);
+  const queryClient = useQueryClient();
+  
+  const { data: history = [], isLoading, isError } = useQuery<AdInteraction[]>({
+    queryKey: ['adHistory'],
+    queryFn: api.settings.getAdHistory,
+  });
+
+  const clearHistoryMutation = useMutation({
+    // Simulating a call to a dedicated clear endpoint
+    mutationFn: () => new Promise((resolve) => setTimeout(() => resolve(true), 500)), 
+    
+    onMutate: async () => {
+        // Optimistic Update: Clear the list immediately
+        await queryClient.cancelQueries({ queryKey: ['adHistory'] });
+        const previousHistory = queryClient.getQueryData<AdInteraction[]>(['adHistory']);
+        queryClient.setQueryData(['adHistory'], []);
+        return { previousHistory };
+    },
+    onSuccess: () => {
+        Alert.alert('Success', 'Ad history successfully cleared.');
+    },
+    onError: (err, variables, context) => {
+        // Rollback on failure
+        queryClient.setQueryData(['adHistory'], context?.previousHistory);
+        Alert.alert('Error', 'Failed to clear history.');
+    },
+    onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ['adHistory'] });
+    },
+  });
 
   const handleClearHistory = () => {
     Alert.alert(
@@ -71,11 +100,7 @@ export default function AdHistoryScreen() {
         {
           text: 'Clear',
           style: 'destructive',
-          onPress: () => {
-            // API call to clear ad_impressions and ad_clicks for the user
-            setHistory([]); 
-            Alert.alert('Success', 'Ad history cleared.');
-          },
+          onPress: () => clearHistoryMutation.mutate(),
         },
       ]
     );
@@ -88,6 +113,25 @@ export default function AdHistoryScreen() {
       <Text style={styles.emptySubText}>Impressions and clicks will appear here.</Text>
     </View>
   );
+
+  if (isLoading) {
+      return (
+          <View style={[styles.container, styles.center]}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+      );
+  }
+  
+  if (isError) {
+       return (
+          <View style={[styles.container, styles.center]}>
+              <Text style={styles.errorText}>Failed to load ad history.</Text>
+               <TouchableOpacity onPress={() => queryClient.invalidateQueries({ queryKey: ['adHistory'] })}>
+                   <Text style={styles.linkButtonText}>Retry</Text>
+               </TouchableOpacity>
+          </View>
+      );
+  }
 
   return (
     <View style={styles.container}>
@@ -104,11 +148,17 @@ export default function AdHistoryScreen() {
         <Text style={styles.headerNote}>Showing {history.length} recent interactions</Text>
         <TouchableOpacity 
           onPress={handleClearHistory} 
-          disabled={history.length === 0}
+          disabled={history.length === 0 || clearHistoryMutation.isPending}
           style={styles.clearButton}
         >
-          <Trash2 color={history.length === 0 ? Colors.textMuted : Colors.danger} size={18} />
-          <Text style={[styles.clearButtonText, history.length === 0 && { color: Colors.textMuted }]}>Clear History</Text>
+          {clearHistoryMutation.isPending ? (
+              <ActivityIndicator color={Colors.danger} size="small" />
+          ) : (
+              <Trash2 color={history.length === 0 ? Colors.textMuted : Colors.danger} size={18} />
+          )}
+          <Text style={[styles.clearButtonText, history.length === 0 && { color: Colors.textMuted }]}>
+             {clearHistoryMutation.isPending ? 'Clearing...' : 'Clear History'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -127,6 +177,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  errorText: {
+       color: Colors.danger,
+      fontSize: 16,
+      marginBottom: 10,
+  },
+  linkButtonText: {
+      color: Colors.primary,
+      fontWeight: '600' as const,
   },
   headerActions: {
       flexDirection: 'row',
