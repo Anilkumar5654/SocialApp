@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,20 +8,31 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { Users, EyeOff, MessageSquare, Activity } from 'lucide-react-native';
+import { Users, EyeOff, MessageSquare, Activity, UserPlus } from 'lucide-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
+import { api } from '@/services/api'; 
 
-// --- Reusable Components for Privacy Screen ---
+// --- TYPE DEFINITIONS for Privacy State ---
+interface PrivacySettings {
+    is_private_account: boolean;
+    posts_visibility: 'public' | 'followers'; // Maps to posts.feed_scope
+    reels_visibility: 'public' | 'followers'; // Maps to reels.visibility
+    allow_comments: 'everyone' | 'followers' | 'following';
+    show_activity_status: boolean; // Maps to users.last_active logic
+}
 
-// 1. Component for Toggle Switches (e.g., Private Account, Activity Status)
+// --- Reusable Component for Toggle Switches ---
 interface SettingToggleItemProps {
   title: string;
   subtitle: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
   icon: React.ComponentType<{ color?: string; size?: number }>;
+  isDisabled: boolean;
 }
 
 const SettingToggleItem: React.FC<SettingToggleItemProps> = ({ 
@@ -29,15 +40,16 @@ const SettingToggleItem: React.FC<SettingToggleItemProps> = ({
   subtitle, 
   value, 
   onValueChange,
-  icon: Icon 
+  icon: Icon,
+  isDisabled
 }) => {
   return (
-    <View style={styles.itemContainer}>
+    <View style={[styles.itemContainer, isDisabled && styles.itemDisabled]}>
       <View style={styles.iconContainer}>
-        <Icon color={Colors.text} size={22} />
+        <Icon color={isDisabled ? Colors.textMuted : Colors.text} size={22} />
       </View>
       <View style={styles.contentContainer}>
-        <Text style={styles.itemTitle}>{title}</Text>
+        <Text style={[styles.itemTitle, isDisabled && styles.itemTitleDisabled]}>{title}</Text>
         <Text style={styles.itemSubtitle}>{subtitle}</Text>
       </View>
       <Switch
@@ -45,12 +57,13 @@ const SettingToggleItem: React.FC<SettingToggleItemProps> = ({
         value={value}
         trackColor={{ false: Colors.textMuted, true: Colors.primary }}
         thumbColor={Colors.text}
+        disabled={isDisabled}
       />
     </View>
   );
 };
 
-// 2. Component for Radio Button Group (e.g., Content Visibility)
+// --- Component for Radio Button Group ---
 interface RadioOption {
     label: string;
     value: string;
@@ -61,25 +74,28 @@ interface RadioGroupItemProps {
     options: RadioOption[];
     selectedValue: string;
     onSelect: (value: string) => void;
+    isDisabled: boolean;
 }
 
 const RadioGroupItem: React.FC<RadioGroupItemProps> = ({ 
     title, 
     options, 
     selectedValue, 
-    onSelect 
+    onSelect,
+    isDisabled
 }) => {
     return (
         <View style={styles.radioGroup}>
-            <Text style={styles.radioGroupTitle}>{title}</Text>
+            <Text style={[styles.radioGroupTitle, isDisabled && styles.itemTitleDisabled]}>{title}</Text>
             {options.map((option) => (
                 <TouchableOpacity
                     key={option.value}
                     style={styles.radioOption}
-                    onPress={() => onSelect(option.value)}
+                    onPress={() => !isDisabled && onSelect(option.value)}
+                    disabled={isDisabled}
                 >
-                    <Text style={styles.radioLabel}>{option.label}</Text>
-                    <View style={styles.radioButton}>
+                    <Text style={[styles.radioLabel, isDisabled && styles.itemTitleDisabled]}>{option.label}</Text>
+                    <View style={[styles.radioButton, isDisabled && styles.radioDisabled]}>
                         {selectedValue === option.value && (
                             <View style={styles.radioButtonInner} />
                         )}
@@ -93,19 +109,67 @@ const RadioGroupItem: React.FC<RadioGroupItemProps> = ({
 // --- Main Screen Component ---
 
 export default function PrivacySettingsScreen() {
-  // Mock States for Privacy Settings
-  const [isPrivate, setIsPrivate] = useState(false); // Maps to users table
-  const [postsVisibility, setPostsVisibility] = useState('public'); // Maps to posts.feed_scope
-  const [reelsVisibility, setReelsVisibility] = useState('public'); // Maps to reels.visibility
-  const [allowComments, setAllowComments] = useState('everyone'); // Maps to videos.allow_comments logic
-  const [showActivity, setShowActivity] = useState(true); // Maps to users.last_active logic
+  const queryClient = useQueryClient();
 
-  // Handle setting updates (Simulated API calls)
-  const handleToggleSetting = (setter: React.Dispatch<React.SetStateAction<any>>, newValue: any, settingName: string) => {
-    setter(newValue);
-    // In a real app: api.settings.update(settingName, newValue);
-    // Alert.alert('Success', `${settingName} updated to ${newValue}.`);
+  // 1. Fetch current settings state using the finalized API call
+  const { data: settings, isLoading, isError } = useQuery<PrivacySettings>({
+    queryKey: ['privacySettings'],
+    queryFn: api.settings.getPrivacySettings,
+  });
+
+  // 2. Mutation for updating settings using the finalized API call
+  const mutation = useMutation({
+    mutationFn: api.settings.updatePrivacySettings,
+    onMutate: async (newSettings) => {
+        // Optimistic update: Save previous value and update cache immediately
+        await queryClient.cancelQueries({ queryKey: ['privacySettings'] });
+        const previousSettings = queryClient.getQueryData<PrivacySettings>(['privacySettings']);
+        
+        queryClient.setQueryData<PrivacySettings>(['privacySettings'], (old) => ({
+            ...old!,
+            ...newSettings,
+        }));
+        
+        return { previousSettings };
+    },
+    onError: (err, newSettings, context) => {
+        // Rollback to previous state on failure
+        queryClient.setQueryData(['privacySettings'], context?.previousSettings);
+        Alert.alert('Error', 'Failed to save settings. Please try again.');
+    },
+    onSettled: () => {
+        // Invalidate to ensure consistency
+        queryClient.invalidateQueries({ queryKey: ['privacySettings'] });
+    },
+  });
+
+  // 3. Centralized update handler
+  const handleUpdate = (key: keyof PrivacySettings, value: any) => {
+    mutation.mutate({ [key]: value });
   };
+  
+  // --- Loading/Error States ---
+  if (isLoading) {
+      return (
+          <View style={[styles.container, styles.center]}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Loading privacy settings...</Text>
+          </View>
+      );
+  }
+  
+  if (isError || !settings) {
+       return (
+          <View style={[styles.container, styles.center]}>
+              <Text style={styles.errorText}>Failed to load settings. Try reloading.</Text>
+               <TouchableOpacity onPress={() => queryClient.invalidateQueries({ queryKey: ['privacySettings'] })}>
+                   <Text style={styles.linkButtonText}>Retry</Text>
+               </TouchableOpacity>
+          </View>
+      );
+  }
+  
+  const isSaving = mutation.isPending;
 
   return (
     <View style={styles.container}>
@@ -116,6 +180,14 @@ export default function PrivacySettingsScreen() {
           headerTintColor: Colors.text,
         }}
       />
+      
+      {isSaving && (
+          <View style={styles.savingOverlay}>
+              <ActivityIndicator color={Colors.text} />
+              <Text style={styles.savingText}>Saving...</Text>
+          </View>
+      )}
+      
       <ScrollView style={styles.content}>
 
         {/* --- 1. Account Privacy --- */}
@@ -125,20 +197,22 @@ export default function PrivacySettingsScreen() {
             icon={EyeOff}
             title="Private Account"
             subtitle="Only approved followers can see your profile and content."
-            value={isPrivate}
-            onValueChange={(val) => handleToggleSetting(setIsPrivate, val, 'PrivateAccount')}
+            value={settings.is_private_account}
+            onValueChange={(val) => handleUpdate('is_private_account', val)}
+            isDisabled={isSaving}
           />
-          {isPrivate && (
+          {settings.is_private_account && (
             <TouchableOpacity 
                 style={styles.linkedItem}
                 onPress={() => router.push('/settings/privacy/requests')}
             >
+                <UserPlus color={Colors.primary} size={20} style={styles.linkedIcon} />
                 <Text style={styles.linkedItemText}>Review Follower Requests</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* --- 2. Content Visibility --- */}
+        {/* --- 2. Content Visibility (Schema Driven) --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Content Visibility</Text>
           <RadioGroupItem
@@ -147,8 +221,9 @@ export default function PrivacySettingsScreen() {
               { label: 'Everyone (Public)', value: 'public' },
               { label: 'Followers Only', value: 'followers' },
             ]}
-            selectedValue={postsVisibility}
-            onSelect={(val) => handleToggleSetting(setPostsVisibility, val, 'PostsVisibility')}
+            selectedValue={settings.posts_visibility}
+            onSelect={(val) => handleUpdate('posts_visibility', val as 'public' | 'followers')}
+            isDisabled={isSaving}
           />
           <RadioGroupItem
             title="Who Can See My Reels"
@@ -156,8 +231,9 @@ export default function PrivacySettingsScreen() {
               { label: 'Everyone (Public)', value: 'public' },
               { label: 'Followers Only', value: 'followers' },
             ]}
-            selectedValue={reelsVisibility}
-            onSelect={(val) => handleToggleSetting(setReelsVisibility, val, 'ReelsVisibility')}
+            selectedValue={settings.reels_visibility}
+            onSelect={(val) => handleUpdate('reels_visibility', val as 'public' | 'followers')}
+            isDisabled={isSaving}
           />
         </View>
 
@@ -171,21 +247,24 @@ export default function PrivacySettingsScreen() {
               { label: 'Followers Only', value: 'followers' },
               { label: 'People I Follow', value: 'following' },
             ]}
-            selectedValue={allowComments}
-            onSelect={(val) => handleToggleSetting(setAllowComments, val, 'AllowComments')}
+            selectedValue={settings.allow_comments}
+            onSelect={(val) => handleUpdate('allow_comments', val as 'everyone' | 'followers' | 'following')}
+            isDisabled={isSaving}
           />
           <SettingToggleItem
             icon={Activity}
             title="Activity Status"
             subtitle="Allow accounts you follow and anyone you message to see when you were last active."
-            value={showActivity}
-            onValueChange={(val) => handleToggleSetting(setShowActivity, val, 'ShowActivity')}
+            value={settings.show_activity_status}
+            onValueChange={(val) => handleUpdate('show_activity_status', val)}
+            isDisabled={isSaving}
           />
           <TouchableOpacity 
               style={styles.linkedItem}
-              onPress={() => router.push('/settings/blocked')} // Linking to an existing route
+              onPress={() => router.push('/settings/blocked')} 
           >
-              <Text style={styles.linkedItemText}>Blocked Users</Text>
+              <Users color={Colors.primary} size={20} style={styles.linkedIcon} />
+              <Text style={styles.linkedItemText}>Blocked Users List</Text>
           </TouchableOpacity>
         </View>
 
@@ -199,8 +278,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  center: {
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  loadingText: {
+      color: Colors.textMuted,
+      marginTop: 10,
+  },
+  errorText: {
+       color: Colors.danger,
+      fontSize: 16,
+      marginBottom: 10,
+  },
+  linkButtonText: {
+      color: Colors.primary,
+      fontWeight: '600' as const,
+  },
   content: {
     paddingBottom: 40,
+  },
+  savingOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  savingText: {
+      color: Colors.text,
+      marginTop: 8,
+      fontSize: 16,
   },
   section: {
     paddingVertical: 8,
@@ -225,6 +337,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
+  },
+  itemDisabled: {
+       opacity: 0.7,
+  },
+  itemTitleDisabled: {
+      color: Colors.textMuted,
   },
   iconContainer: {
     width: 32,
@@ -280,6 +398,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  radioDisabled: {
+      borderColor: Colors.textMuted,
+  },
   radioButtonInner: {
     height: 10,
     width: 10,
@@ -293,10 +414,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   linkedItemText: {
     fontSize: 16,
     fontWeight: '500' as const,
     color: Colors.primary,
-  }
+  },
+  linkedIcon: {
+      marginTop: 1,
+  },
 });
