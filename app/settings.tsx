@@ -10,6 +10,13 @@ import {
   LogOut,
   ChevronRight,
   Bug,
+  // --- NEW IMPORTS ---
+  ShieldCheck, // 2FA
+  Download, // Download Data
+  Ban, // Blocked Users
+  Key, // E2EE Keys
+  BarChart2, // Ad History
+  Target, // Ad Personalization
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -126,56 +133,95 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        
+        {/* I. ACCOUNT */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>ACCOUNT</Text>
           <SettingItem
-            icon={User}
-            title="Edit Profile"
-            subtitle="Update your profile information"
-            onPress={() => router.push('/edit-profile')}
+            icon={ShieldCheck}
+            title="Two-Factor Authentication (2FA)"
+            subtitle="Secure your account with 2FA"
+            onPress={() => router.push('/settings/2fa')}
           />
           <SettingItem
             icon={Lock}
             title="Change Password"
             subtitle="Update your password"
-            onPress={() => Alert.alert('Change Password', 'Coming soon!')}
+            onPress={() => router.push('/settings/change-password')}
+          />
+          <SettingItem
+            icon={Download}
+            title="Download Your Data"
+            subtitle="Request a copy of your content and activity"
+            onPress={() => router.push('/settings/data-export')}
           />
         </View>
 
+        {/* II. PRIVACY & SECURITY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Security</Text>
+          <Text style={styles.sectionTitle}>PRIVACY & SECURITY</Text>
           <SettingItem
             icon={Shield}
             title="Privacy Settings"
             subtitle="Control who can see your content"
-            onPress={() => Alert.alert('Privacy Settings', 'Coming soon!')}
+            onPress={() => router.push('/settings/privacy')}
           />
           <SettingItem
             icon={Bell}
             title="Notifications"
             subtitle="Manage notification preferences"
-            onPress={() => router.push('/notifications')}
+            onPress={() => router.push('/settings/notifications')}
+          />
+          <SettingItem
+            icon={Ban}
+            title="Blocked Users"
+            subtitle="Manage users you have blocked"
+            onPress={() => router.push('/settings/blocked')}
+          />
+          <SettingItem
+            icon={Key}
+            title="Chat Encryption Keys"
+            subtitle="Manage end-to-end security keys"
+            onPress={() => router.push('/settings/e2ee-keys')}
           />
         </View>
 
+        {/* III. ADS & DATA PREFERENCES */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>General</Text>
+          <Text style={styles.sectionTitle}>ADS & DATA PREFERENCES</Text>
+          <SettingItem
+            icon={Target}
+            title="Ad Personalization"
+            subtitle="Allow tailored ads based on your interests"
+            onPress={() => router.push('/settings/ad-personalization')}
+          />
+          <SettingItem
+            icon={BarChart2}
+            title="Ad History"
+            subtitle="View ads you have recently interacted with"
+            onPress={() => router.push('/settings/ad-history')}
+          />
+        </View>
+
+        {/* IV. GENERAL */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>GENERAL</Text>
           <SettingItem
             icon={Globe}
             title="Language"
             subtitle="English"
-            onPress={() => Alert.alert('Language', 'Coming soon!')}
+            onPress={() => router.push('/settings/language')}
           />
           <SettingItem
             icon={HelpCircle}
             title="Help & Support"
-            subtitle="Get help and support"
-            onPress={() => Alert.alert('Help & Support', 'Coming soon!')}
+            onPress={() => router.push('/settings/help')}
           />
         </View>
 
+        {/* V. DEVELOPER (Existing) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Developer</Text>
+          <Text style={styles.sectionTitle}>DEVELOPER</Text>
           <SettingItem
             icon={Bug}
             title="API Debug Console"
@@ -184,7 +230,9 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* VI. SESSION (Logout is always last) */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SESSION</Text>
           <SettingItem
             icon={LogOut}
             title={logoutMutation.isPending ? 'Logging out...' : 'Logout'}
