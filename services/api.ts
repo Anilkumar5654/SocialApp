@@ -1,4 +1,3 @@
-// ApiClient.tsx
 import { ApiLogger } from '@/app/api-debug';
 import { getDeviceId } from '@/utils/deviceId';
 
@@ -43,7 +42,6 @@ class ApiClient {
     }
 
     if (this.token) {
-      // Sending token in Authorization header
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
@@ -108,7 +106,6 @@ class ApiClient {
           });
         }
         
-        // Throw 401 error to be caught by global session handler (if implemented)
         throw { message: errorMessage, status: response.status };
       }
 
@@ -119,6 +116,8 @@ class ApiClient {
           status: 'success', 
           statusCode: response.status,
           request: requestBody || 'No Body',
+          // LOGGING THE FULL RESPONSE DATA ON SUCCESS (FIX)
+          response: responseData, 
           duration,
         });
       }
