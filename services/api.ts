@@ -79,12 +79,11 @@ class ApiClient {
       const rawResponseText = await response.text();
       
       let responseData: any = null;
-      let parseError: string | null = null;
       
       try {
         responseData = rawResponseText ? JSON.parse(rawResponseText) : null;
       } catch (jsonError: any) {
-        parseError = jsonError.message;
+        // Handle non-JSON response (e.g., plain text error)
         responseData = rawResponseText;
       }
 
@@ -283,20 +282,22 @@ class ApiClient {
       hashtags: async (tag: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/hashtags?tag=${encodeURIComponent(tag)}&page=${page}`),
   };
 
-  // <<< NEW MODULE: SETTINGS (Per User Request) >>>
+  // <<< FINAL MODULE: SETTINGS >>>
   settings = {
-      // Endpoint for Privacy Settings (used by privacy.tsx)
+      // --- PRIVACY & VISIBILITY ---
       getPrivacySettings: async () => this.request('/settings/privacy.php?action=get'),
       updatePrivacySettings: async (data: any) => this.request('/settings/privacy.php?action=update', { 
           method: 'POST', 
           body: JSON.stringify(data) 
       }),
       
-      // Password, 2FA, Blocked Users, etc.
+      // --- PASSWORD & 2FA ---
       changePassword: async (currentPassword: string, newPassword: string) => this.request('/settings/security/change-password.php', { 
           method: 'POST', 
           body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) 
       }),
+      get2FAStatus: async () => this.request('/settings/security/2fa/status.php'),
+      generate2FASecret: async () => this.request('/settings/security/2fa/generate-secret.php', { method: 'POST' }),
       enable2FA: async (secret: string, code: string) => this.request('/settings/security/2fa/enable.php', { 
           method: 'POST', 
           body: JSON.stringify({ secret: secret, code: code }) 
@@ -305,21 +306,51 @@ class ApiClient {
           method: 'POST', 
           body: JSON.stringify({ code: code }) 
       }),
-      getAdPreferences: async () => this.request('/settings/ads/preferences.php?action=get'),
-      updateAdPreferences: async (data: any) => this.request('/settings/ads/preferences.php?action=update', { 
+
+      // --- E2EE KEY MANAGEMENT (Future Use) ---
+      backupKey: async () => this.request('/settings/security/e2ee/backup.php', { method: 'POST' }),
+      generateNewKey: async () => this.request('/settings/security/e2ee/generate-new.php', { method: 'POST' }),
+      setRecoveryPhrase: async (phrase: string) => this.request('/settings/security/e2ee/set-recovery.php', { 
           method: 'POST', 
-          body: JSON.stringify(data) 
+          body: JSON.stringify({ recovery_phrase: phrase }) 
       }),
-      getBlockedUsers: async () => this.request('/settings/users/blocked.php'),
-      unblockUser: async (userId: string) => this.request('/settings/users/unblock.php', { 
-          method: 'POST', 
-          body: JSON.stringify({ user_id: userId }) 
-      }),
+      
+      // --- NOTIFICATIONS ---
       getNotifications: async () => this.request('/settings/notifications.php?action=get'),
       updateNotifications: async (data: any) => this.request('/settings/notifications.php?action=update', { 
           method: 'POST', 
           body: JSON.stringify(data) 
       }),
+
+      // --- ADS & DATA ---
+      getAdPreferences: async () => this.request('/settings/ads/preferences.php?action=get'),
+      updateAdPreferences: async (data: any) => this.request('/settings/ads/preferences.php?action=update', { 
+          method: 'POST', 
+          body: JSON.stringify(data) 
+      }),
+      clearAdHistory: async () => this.request('/settings/ads/clear-history.php', { method: 'POST' }),
+      getAdHistory: async () => this.request('/settings/ads/history.php'), // Added explicit history endpoint
+
+      // --- USER MANAGEMENT ---
+      getBlockedUsers: async () => this.request('/settings/users/blocked.php'),
+      unblockUser: async (userId: string) => this.request('/settings/users/unblock.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ user_id: userId }) 
+      }),
+      
+      // --- DATA EXPORT ---
+      getDataExportRequests: async () => this.request('/settings/data/requests.php'),
+      requestDataExport: async (format: string) => this.request('/settings/data/request-export.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ format: format }) 
+      }),
+
+      // --- GENERAL ---
+      updateLanguage: async (langCode: string) => this.request('/settings/general/language.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ language_code: langCode }) 
+      }),
+
   }
 
 }
