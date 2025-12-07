@@ -1,3 +1,4 @@
+// ApiClient.tsx
 import { ApiLogger } from '@/app/api-debug';
 import { getDeviceId } from '@/utils/deviceId';
 
@@ -328,11 +329,8 @@ class ApiClient {
       getAdHistory: async () => this.request('/settings/ads/history'),
 
       // --- USER MANAGEMENT (BLOCKED) ---
-      // GET List: /settings/blocked
-      getBlockedUsers: async () => this.request('/settings/blocked'),
-      
-      // POST Unblock: /settings/users/unblock (Uses 'user_id' key)
-      unblockUser: async (userId: string) => this.request('/settings/users/unblock', { 
+      getBlockedUsers: async () => this.request('/settings/blocked'), // GET List
+      unblockUser: async (userId: string) => this.request('/settings/users/unblock', { // POST Unblock
           method: 'POST', 
           body: JSON.stringify({ user_id: userId }) 
       }),
