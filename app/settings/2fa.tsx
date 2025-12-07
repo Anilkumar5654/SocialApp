@@ -12,89 +12,111 @@ import {
 } from 'react-native';
 import { Lock, CheckCircle, XCircle, Copy } from 'lucide-react-native'; 
 import * as Clipboard from 'expo-clipboard';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 
 import Colors from '@/constants/colors';
-// import { api } from '@/services/api'; 
+import { api } from '@/services/api'; 
 
-// --- MOCK DATA ---
+// --- MOCK DATA / API ---
+// This key should be unique to the user and fetched from the server.
 const MOCK_2FA_SECRET = 'NZXXQ443XJTWQ2DBEBYCA5DF'; 
 
-export default function TwoFactorAuthScreen() {
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false); 
-  // Step 0: Enabled/Disabled View
-  // Step 1: Show Secret Key/QR Code
-  // Step 2: Verify TOTP Code
-  const [currentStep, setCurrentStep] = useState(is2FAEnabled ? 0 : 1);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+// Mock function to fetch the current 2FA status
+api.settings.get2FAStatus = async (): Promise<{ is_2fa_enabled: boolean }> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // In a real app, this would return the user's current status from the backend
+    return { is_2fa_enabled: false }; 
+} as any; 
 
-  // --- HANDLERS ---
+// Mock function to generate the secret key (This usually happens before Step 1)
+api.settings.generate2FASecret = async (): Promise<string> => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return MOCK_2FA_SECRET; 
+} as any;
+
+
+export default function TwoFactorAuthScreen() {
+  const queryClient = useQueryClient();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [secretKey, setSecretKey] = useState<string>('');
   
-  const copyToClipboard = async (text: string) => {
-    await Clipboard.setStringAsync(text);
+  // 1. Fetch current status
+  const { data: status, isLoading: isLoadingStatus, isError: isErrorStatus } = useQuery<{ is_2fa_enabled: boolean }>({
+      queryKey: ['2FAStatus'],
+      queryFn: api.settings.get2FAStatus,
+      initialData: { is_2fa_enabled: false },
+      refetchOnWindowFocus: true,
+  });
+
+  // 2. Mutation for enabling 2FA (Step 2 confirmation)
+  const enableMutation = useMutation({
+      mutationFn: (code: string) => api.settings.enable2FA(secretKey, code),
+      onSuccess: () => {
+          Alert.alert('Success', '2FA successfully enabled!');
+          queryClient.invalidateQueries({ queryKey: ['2FAStatus'] });
+          setCurrentStep(0);
+      },
+      onError: (error: any) => {
+          Alert.alert('Error', error.message || 'Invalid code. Please try again.');
+      },
+  });
+
+  // 3. Mutation for disabling 2FA
+  const disableMutation = useMutation({
+      mutationFn: () => api.settings.disable2FA(verificationCode), // In real life, might require password/code confirmation
+      onSuccess: () => {
+          Alert.alert('Success', '2FA successfully disabled.');
+          queryClient.invalidateQueries({ queryKey: ['2FAStatus'] });
+          setCurrentStep(1); // Back to setup
+      },
+       onError: (error: any) => {
+          Alert.alert('Error', error.message || 'Failed to disable 2FA.');
+      },
+  });
+
+  const handleCopySecret = async () => {
+    await Clipboard.setStringAsync(secretKey);
     Alert.alert('Copied!', 'Secret key has been copied to clipboard.');
   };
+  
+  const handleStartSetup = async () => {
+      // Step 1: Fetch the secret key from the server
+      const key = await api.settings.generate2FASecret();
+      setSecretKey(key);
+      setCurrentStep(1);
+  };
+  
+  const handleNextStep = () => {
+    setCurrentStep(2);
+  };
 
-  // Handler to disable 2FA
-  const handleDisable2FA = async () => {
+  const handleVerifyAndEnable = () => {
+    if (verificationCode.length !== 6) {
+      Alert.alert('Error', 'Verification code must be 6 digits.');
+      return;
+    }
+    enableMutation.mutate(verificationCode);
+  };
+
+  const handleDisable2FA = () => {
     Alert.alert(
       'Disable 2FA',
-      'Are you sure you want to disable Two-Factor Authentication?',
+      'Are you sure you want to disable Two-Factor Authentication? We recommend keeping it enabled.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Disable',
           style: 'destructive',
-          onPress: async () => {
-            setIsLoading(true);
-            try {
-              // API call to disable 2FA: await api.security.disable2FA();
-              setIs2FAEnabled(false);
-              setCurrentStep(1); // Go back to setup step
-              Alert.alert('Success', '2FA successfully disabled.');
-            } catch (e) {
-              Alert.alert('Error', 'Failed to disable 2FA.');
-            } finally {
-              setIsLoading(false);
-            }
-          },
+          onPress: () => disableMutation.mutate(), // Trigger mutation
         },
       ]
     );
   };
   
-  // Handler for Step 1: Move to verification (Step 2)
-  const handleNextStep = () => {
-    // In a real app, API call to generate MOCK_2FA_SECRET would happen here
-    setCurrentStep(2);
-  };
-
-  // Handler for Step 2: Verify Code and Enable 2FA
-  const handleVerifyAndEnable = async () => {
-    if (verificationCode.length !== 6) {
-      Alert.alert('Error', 'Verification code must be 6 digits.');
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-        // API call to verify the TOTP code against the secret key
-        // await api.security.verify2FA(verificationCode, MOCK_2FA_SECRET);
-        
-        // Simulating Success:
-        setIs2FAEnabled(true);
-        setCurrentStep(0); // Move to enabled status view
-        Alert.alert('Success', '2FA successfully enabled!');
-        
-    } catch (e) {
-        // Simulating Failure:
-        Alert.alert('Error', 'Invalid code. Please check the code and time on your Authenticator App.');
-    } finally {
-        setIsLoading(false);
-        setVerificationCode(''); // Clear the input
-    }
-  };
-
+  const isSaving = enableMutation.isPending || disableMutation.isPending;
+  const is2FAEnabled = status?.is_2fa_enabled ?? false;
 
   // --- UI RENDERING FOR SETUP STEPS ---
 
@@ -110,17 +132,17 @@ export default function TwoFactorAuthScreen() {
 
           {/* QR Code Placeholder (Requires a library for actual rendering) */}
           <View style={styles.qrCodePlaceholder}>
-            <Text style={styles.qrText}>[QR Code Placeholder]</Text>
+            <Text style={styles.qrText}>[{secretKey ? 'QR Code for' : 'Generating'} {secretKey}]</Text>
           </View>
           
           <View style={styles.secretKeyRow}>
-            <Text style={styles.secretText}>{MOCK_2FA_SECRET}</Text>
-            <TouchableOpacity onPress={() => copyToClipboard(MOCK_2FA_SECRET)}>
-                <Copy color={Colors.text} size={20} />
+            <Text style={styles.secretText}>{secretKey || 'Tap Start Setup...'}</Text>
+            <TouchableOpacity onPress={handleCopySecret} disabled={!secretKey || isSaving}>
+                <Copy color={secretKey ? Colors.text : Colors.textMuted} size={20} />
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={styles.button} onPress={handleNextStep}>
+          <TouchableOpacity style={styles.button} onPress={handleNextStep} disabled={!secretKey || isSaving}>
             <Text style={styles.buttonText}>Next: Verify Code</Text>
           </TouchableOpacity>
         </View>
@@ -144,15 +166,15 @@ export default function TwoFactorAuthScreen() {
             maxLength={6}
             value={verificationCode}
             onChangeText={setVerificationCode}
-            editable={!isLoading}
+            editable={!isSaving}
           />
 
           <TouchableOpacity
             style={[styles.button, verificationCode.length !== 6 && styles.buttonDisabled]}
             onPress={handleVerifyAndEnable}
-            disabled={verificationCode.length !== 6 || isLoading}
+            disabled={verificationCode.length !== 6 || isSaving}
           >
-            {isLoading ? (
+            {isSaving ? (
               <ActivityIndicator color={Colors.text} />
             ) : (
               <Text style={styles.buttonText}>Verify & Enable 2FA</Text>
@@ -164,6 +186,25 @@ export default function TwoFactorAuthScreen() {
   };
   
   // --- Main Render ---
+
+  if (isLoadingStatus) {
+       return (
+          <View style={[styles.container, styles.center]}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+      );
+  }
+  
+  if (isErrorStatus) {
+      return (
+          <View style={[styles.container, styles.center]}>
+              <Text style={styles.errorText}>Failed to load 2FA status.</Text>
+               <TouchableOpacity onPress={() => queryClient.invalidateQueries({ queryKey: ['2FAStatus'] })}>
+                   <Text style={styles.linkButtonText}>Retry</Text>
+               </TouchableOpacity>
+          </View>
+      );
+  }
 
   return (
     <View style={styles.container}>
@@ -192,7 +233,7 @@ export default function TwoFactorAuthScreen() {
         </View>
 
         {is2FAEnabled ? (
-          // --- 2FA Enabled View (Step 0) ---
+          // --- 2FA Enabled View ---
           <View style={styles.enabledView}>
             <Text style={styles.enabledText}>
                 Your account is protected. You will need a code from your authenticator app to log in.
@@ -200,9 +241,9 @@ export default function TwoFactorAuthScreen() {
              <TouchableOpacity 
                 style={[styles.button, styles.disableButton]} 
                 onPress={handleDisable2FA} 
-                disabled={isLoading}
+                disabled={isSaving}
              >
-                {isLoading ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>Disable 2FA</Text>}
+                {isSaving ? <ActivityIndicator color={Colors.text} /> : <Text style={styles.buttonText}>Disable 2FA</Text>}
              </TouchableOpacity>
 
             <View style={styles.recoveryBox}>
@@ -214,8 +255,19 @@ export default function TwoFactorAuthScreen() {
             </View>
           </View>
         ) : (
-          // --- 2FA Disabled/Setup View (Steps 1 & 2) ---
-          renderSetupSteps()
+          // --- 2FA Disabled/Setup View ---
+          <View>
+              {secretKey ? (
+                  renderSetupSteps()
+              ) : (
+                   <TouchableOpacity 
+                        style={styles.startButton} 
+                        onPress={handleStartSetup}
+                    >
+                        <Text style={styles.startButtonText}>Start 2FA Setup</Text>
+                    </TouchableOpacity>
+              )}
+          </View>
         )}
         
       </ScrollView>
@@ -230,6 +282,20 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  errorText: {
+       color: Colors.danger,
+      fontSize: 16,
+      marginBottom: 10,
+  },
+  linkButtonText: {
+      color: Colors.primary,
+      fontWeight: '600' as const,
   },
   statusBox: {
     flexDirection: 'row',
@@ -369,9 +435,16 @@ const styles = StyleSheet.create({
   linkButton: {
       marginTop: 5,
   },
-  linkButtonText: {
-      color: Colors.primary,
-      fontSize: 15,
-      fontWeight: '600' as const,
+  startButton: {
+    backgroundColor: Colors.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  startButtonText: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700' as const,
   }
 });
