@@ -49,23 +49,29 @@ class ApiClient {
       Object.assign(headers, options.headers);
     }
 
+    // <<< FIX: Robustly capture and parse the request body for logging >>>
     let requestBody: any = undefined;
+    const rawBodyString = (options.body && typeof options.body === 'string') ? options.body : undefined;
+
     if (isFormDataBody) {
       requestBody = 'FormData (multipart/form-formdata)';
-    } else if (options.body && typeof options.body === 'string') {
+    } else if (rawBodyString) {
       try {
-        requestBody = JSON.parse(options.body);
+        // Attempt to parse string body back to object for logging readability
+        requestBody = JSON.parse(rawBodyString); 
       } catch {
-        requestBody = options.body;
+        // If parsing fails, log the raw string
+        requestBody = rawBodyString;
       }
     }
+    // <<< END FIX >>>
 
     if (apiDebugLogger) {
       apiDebugLogger({
         endpoint,
         method: options.method || 'GET',
         status: 'pending',
-        request: requestBody,
+        request: requestBody || 'No Body', 
       });
     }
 
@@ -96,7 +102,7 @@ class ApiClient {
             method: options.method || 'GET',
             status: 'error',
             statusCode: response.status,
-            request: requestBody,
+            request: requestBody || 'No Body', // Ensure request body is logged on error
             response: responseData,
             error: errorMessage,
             duration,
@@ -112,7 +118,7 @@ class ApiClient {
           method: options.method || 'GET',
           status: 'success', 
           statusCode: response.status,
-          request: requestBody,
+          request: requestBody || 'No Body', // Ensure request body is logged on success
           duration,
         });
       }
@@ -125,7 +131,7 @@ class ApiClient {
           endpoint,
           method: options.method || 'GET',
           status: 'error',
-          request: requestBody,
+          request: requestBody || 'No Body', // Ensure request body is logged on network error
           error: error.message || 'Network error',
           duration,
         });
@@ -134,7 +140,7 @@ class ApiClient {
     }
   }
 
-  // --- MODULES ---
+  // --- MODULES (CLEAN URLS) ---
 
   auth = {
     login: async (email: string, password: string) => this.request<{ token: string; user: any }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -147,16 +153,6 @@ class ApiClient {
   home = {
     getFeed: async (page: number = 1, limit: number = 10, feedType: 'for-you' | 'following' = 'for-you') => this.request<{ posts: any[]; hasMore: boolean }>(`/home/feed?page=${page}&limit=${limit}&type=${feedType}`),
     getStories: async () => this.request<{ stories: any[] }>('/stories'),
-  };
-
-  stories = {
-    getStories: async () => this.request<{ stories: any[] }>('/stories'),
-    getUserStories: async (userId: string) => this.request<{ stories: any[] }>(`/stories/user?user_id=${userId}`),
-    getViewers: async (storyId: string) => this.request<{ viewers: any[] }>(`/stories/viewers?story_id=${storyId}`),
-    react: async (storyId: string, reactionType: 'heart' | 'like') => this.request(`/stories/react`, { method: 'POST', body: JSON.stringify({ story_id: storyId, reaction_type: reactionType }) }),
-    upload: async (formData: FormData) => this.request('/stories/upload', { method: 'POST', body: formData }),
-    view: async (storyId: string) => this.request(`/stories/view`, { method: 'POST', body: JSON.stringify({ story_id: storyId }) }),
-    delete: async (storyId: string) => this.request(`/stories/delete?id=${storyId}`, { method: 'DELETE' }),
   };
 
   posts = {
@@ -220,7 +216,7 @@ class ApiClient {
         return this.request<{ videos: any[]; total: number }>(`/videos/search?${params.toString()}`);
     },
     report: async (videoId: string, reason: string = 'Inappropriate', description?: string) => {
-      return this.request('/videos/action/report', { // Removed .php
+      return this.request('/videos/action/report', { 
         method: 'POST',
         body: JSON.stringify({ video_id: videoId, reason, description }),
       });
@@ -232,7 +228,7 @@ class ApiClient {
         });
     },
     delete: async (videoId: string) => {
-      return this.request('/videos/action/delete', { // Removed .php
+      return this.request('/videos/action/delete', { 
           method: 'POST', 
           body: JSON.stringify({ video_id: videoId }),
       });
@@ -282,7 +278,7 @@ class ApiClient {
       hashtags: async (tag: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/hashtags?tag=${encodeURIComponent(tag)}&page=${page}`),
   };
 
-  // <<< FINAL MODULE: SETTINGS (ALL .php REMOVED) >>>
+  // <<< FINAL MODULE: SETTINGS (CLEAN URLs) >>>
   settings = {
       // --- PRIVACY & VISIBILITY ---
       getPrivacySettings: async () => this.request('/settings/privacy?action=get'),
