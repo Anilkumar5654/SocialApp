@@ -126,26 +126,25 @@ export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
   const [userToUnblock, setUserToUnblock] = useState<BlockedUser | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null); // State for theme-friendly error message
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 1. Fetch blocked users list using useQuery
+  // 1. Fetch blocked users list using useQuery (GET /settings/blocked)
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
     queryKey: ['blockedUsersList'],
     queryFn: api.settings.getBlockedUsers,
   });
 
-  // 2. Unblock Mutation
+  // 2. Unblock Mutation (POST /settings/users/unblock)
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => api.settings.unblockUser(userId),
     
-    // Optimistic Update
+    // Optimistic Update: Immediately remove user from list
     onMutate: async (userIdToUnblock) => {
         setModalVisible(false); 
-        setErrorMessage(null); // Clear previous errors
+        setErrorMessage(null); 
         await queryClient.cancelQueries({ queryKey: ['blockedUsersList'] });
         const previousBlockedUsers = queryClient.getQueryData<BlockedUser[]>(['blockedUsersList']);
         
-        // Remove the user from the list immediately
         queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (old) => 
             old ? old.filter(user => user.id !== userIdToUnblock) : []
         );
@@ -153,17 +152,18 @@ export default function BlockedUsersScreen() {
         return { previousBlockedUsers };
     },
     onSuccess: () => {
-         // Use custom toast/snackbar implementation here instead of native alert
-         console.log('User successfully unblocked and list updated. (Use custom Toast)');
+         // Use custom toast/snackbar implementation here for success notification
+         console.log('User successfully unblocked and list updated.');
     },
-    onError: (err, userIdToUnblock, context) => {
+    onError: (err: any, userIdToUnblock, context) => {
         // Rollback on failure
         queryClient.setQueryData(['blockedUsersList'], context?.previousBlockedUsers);
         // Set a theme-friendly error message
-        setErrorMessage('Failed to unblock user. Please try again.'); 
+        setErrorMessage(err.message || 'Failed to unblock user. Please try again.'); 
     },
     onSettled: () => {
         setUserToUnblock(null);
+        // Ensure the list is fresh after the operation
         queryClient.invalidateQueries({ queryKey: ['blockedUsersList'] });
     },
   });
@@ -198,7 +198,6 @@ export default function BlockedUsersScreen() {
       );
   }
   
-  // Display general loading/error screen
   if (isError || !blockedUsers) {
        return (
           <View style={[styles.container, styles.center]}>
