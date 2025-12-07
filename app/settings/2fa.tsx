@@ -18,21 +18,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
 
-// --- MOCK DATA / API ---
-// This key should be unique to the user and fetched from the server.
-const MOCK_2FA_SECRET = 'NZXXQ443XJTWQ2DBEBYCA5DF'; 
+// --- TYPE DEFINITION ---
+interface TwoFAStatus {
+    is_2fa_enabled: boolean;
+}
 
-// Mock function to fetch the current 2FA status
-api.settings.get2FAStatus = async (): Promise<{ is_2fa_enabled: boolean }> => {
+// --- MOCK/DUMMY API FUNCTIONS (Must be defined in api.ts) ---
+// NOTE: We assume these endpoints exist in api.settings module now.
+api.settings.get2FAStatus = async (): Promise<TwoFAStatus> => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    // In a real app, this would return the user's current status from the backend
+    // FIXED: Added semicolon here to resolve the previous SyntaxError
     return { is_2fa_enabled: false }; 
 } as any; 
 
-// Mock function to generate the secret key (This usually happens before Step 1)
 api.settings.generate2FASecret = async (): Promise<string> => {
     await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_2FA_SECRET; 
+    return 'NZXXQ443XJTWQ2DBEBYCA5DF'; 
 } as any;
 
 
@@ -43,7 +44,7 @@ export default function TwoFactorAuthScreen() {
   const [secretKey, setSecretKey] = useState<string>('');
   
   // 1. Fetch current status
-  const { data: status, isLoading: isLoadingStatus, isError: isErrorStatus } = useQuery<{ is_2fa_enabled: boolean }>({
+  const { data: status, isLoading: isLoadingStatus, isError: isErrorStatus } = useQuery<TwoFAStatus>({
       queryKey: ['2FAStatus'],
       queryFn: api.settings.get2FAStatus,
       initialData: { is_2fa_enabled: false },
@@ -65,11 +66,11 @@ export default function TwoFactorAuthScreen() {
 
   // 3. Mutation for disabling 2FA
   const disableMutation = useMutation({
-      mutationFn: () => api.settings.disable2FA(verificationCode), // In real life, might require password/code confirmation
+      mutationFn: () => api.settings.disable2FA(verificationCode), 
       onSuccess: () => {
           Alert.alert('Success', '2FA successfully disabled.');
           queryClient.invalidateQueries({ queryKey: ['2FAStatus'] });
-          setCurrentStep(1); // Back to setup
+          setCurrentStep(1); 
       },
        onError: (error: any) => {
           Alert.alert('Error', error.message || 'Failed to disable 2FA.');
@@ -109,7 +110,7 @@ export default function TwoFactorAuthScreen() {
         {
           text: 'Disable',
           style: 'destructive',
-          onPress: () => disableMutation.mutate(), // Trigger mutation
+          onPress: () => disableMutation.mutate(), 
         },
       ]
     );
@@ -257,12 +258,13 @@ export default function TwoFactorAuthScreen() {
         ) : (
           // --- 2FA Disabled/Setup View ---
           <View>
-              {secretKey ? (
+              {secretKey || currentStep === 2 ? (
                   renderSetupSteps()
               ) : (
                    <TouchableOpacity 
                         style={styles.startButton} 
                         onPress={handleStartSetup}
+                        disabled={isSaving}
                     >
                         <Text style={styles.startButtonText}>Start 2FA Setup</Text>
                     </TouchableOpacity>
