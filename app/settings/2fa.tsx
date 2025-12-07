@@ -23,18 +23,17 @@ interface TwoFAStatus {
     is_2fa_enabled: boolean;
 }
 
-// --- MOCK/DUMMY API FUNCTIONS (Must be defined in api.ts) ---
-// NOTE: We assume these endpoints exist in api.settings module now.
-api.settings.get2FAStatus = async (): Promise<TwoFAStatus> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // FIXED: Added semicolon here to resolve the previous SyntaxError
-    return { is_2fa_enabled: false }; 
-} as any; 
+// --- MOCK API FUNCTIONS (FINAL SYNTAX FIX) ---
 
-api.settings.generate2FASecret = async (): Promise<string> => {
+api.settings.get2FAStatus = (() => async (): Promise<TwoFAStatus> => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { is_2fa_enabled: false };
+})() as any; 
+
+api.settings.generate2FASecret = (() => async (): Promise<string> => {
     await new Promise(resolve => setTimeout(resolve, 300));
     return 'NZXXQ443XJTWQ2DBEBYCA5DF'; 
-} as any;
+})() as any;
 
 
 export default function TwoFactorAuthScreen() {
