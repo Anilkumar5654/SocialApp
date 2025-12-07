@@ -49,7 +49,7 @@ class ApiClient {
       Object.assign(headers, options.headers);
     }
 
-    // <<< FIX: Robustly capture and parse the request body for logging >>>
+    // <<< Capture and parse the request body for logging >>>
     let requestBody: any = undefined;
     const rawBodyString = (options.body && typeof options.body === 'string') ? options.body : undefined;
 
@@ -57,10 +57,8 @@ class ApiClient {
       requestBody = 'FormData (multipart/form-formdata)';
     } else if (rawBodyString) {
       try {
-        // Attempt to parse string body back to object for logging readability
         requestBody = JSON.parse(rawBodyString); 
       } catch {
-        // If parsing fails, log the raw string
         requestBody = rawBodyString;
       }
     }
@@ -102,7 +100,7 @@ class ApiClient {
             method: options.method || 'GET',
             status: 'error',
             statusCode: response.status,
-            request: requestBody || 'No Body', // Ensure request body is logged on error
+            request: requestBody || 'No Body',
             response: responseData,
             error: errorMessage,
             duration,
@@ -118,7 +116,7 @@ class ApiClient {
           method: options.method || 'GET',
           status: 'success', 
           statusCode: response.status,
-          request: requestBody || 'No Body', // Ensure request body is logged on success
+          request: requestBody || 'No Body',
           duration,
         });
       }
@@ -131,7 +129,7 @@ class ApiClient {
           endpoint,
           method: options.method || 'GET',
           status: 'error',
-          request: requestBody || 'No Body', // Ensure request body is logged on network error
+          request: requestBody || 'No Body',
           error: error.message || 'Network error',
           duration,
         });
@@ -249,7 +247,7 @@ class ApiClient {
     getFollowers: async (userId: string, page: number = 1) => this.request(`/users/followers?user_id=${userId}&page=${page}`),
     getFollowing: async (userId: string, page: number = 1) => this.request(`/users/following?user_id=${userId}&page=${page}`),
     getPosts: async (userId: string, page: number = 1) => this.request<{ posts: any[]; hasMore: boolean }>(`/users/posts?user_id=${userId}&page=${page}`),
-    getReels: async (userId: string, page: number = 1) => this.request<{ reels: any[]; hasMore: boolean }>(`/users/reels?user_id=${userId}&page=${page}`),
+    getReels: async (userId: string, page: number = 1) => this.request<{ reels: any[] }>(`/users/reels?user_id=${userId}&page=${page}`),
     getVideos: async (userId: string, page: number = 1) => this.request(`/users/videos?user_id=${userId}&page=${page}`),
   };
 
@@ -278,7 +276,7 @@ class ApiClient {
       hashtags: async (tag: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/hashtags?tag=${encodeURIComponent(tag)}&page=${page}`),
   };
 
-  // <<< FINAL MODULE: SETTINGS (CLEAN URLs) >>>
+  // <<< FINAL MODULE: SETTINGS >>>
   settings = {
       // --- PRIVACY & VISIBILITY ---
       getPrivacySettings: async () => this.request('/settings/privacy?action=get'),
@@ -327,8 +325,11 @@ class ApiClient {
       clearAdHistory: async () => this.request('/settings/ads/clear-history', { method: 'POST' }),
       getAdHistory: async () => this.request('/settings/ads/history'),
 
-      // --- USER MANAGEMENT ---
-      getBlockedUsers: async () => this.request('/settings/users/blocked'),
+      // --- USER MANAGEMENT (BLOCKED) ---
+      // GET List: /settings/blocked
+      getBlockedUsers: async () => this.request('/settings/blocked'),
+      
+      // POST Unblock: /settings/users/unblock (Uses 'user_id' key)
       unblockUser: async (userId: string) => this.request('/settings/users/unblock', { 
           method: 'POST', 
           body: JSON.stringify({ user_id: userId }) 
