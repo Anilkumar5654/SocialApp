@@ -27,9 +27,10 @@ interface NotificationPreferences {
     allow_dm_requests: boolean; // type: 'dm_request'
 }
 
-// Mock API structure for simplicity, assuming api.ts handles the real endpoint:
-api.settings.getNotifications = async (): Promise<NotificationPreferences> => {
+// --- MOCK API FUNCTION (FINAL CORRECTED SYNTAX) ---
+api.settings.getNotifications = (async (): Promise<NotificationPreferences> => {
     await new Promise(resolve => setTimeout(resolve, 500)); 
+    // FIX APPLIED: Wrapping the function in parentheses ()
     return {
         allow_global: true,
         allow_likes: true,
@@ -39,7 +40,8 @@ api.settings.getNotifications = async (): Promise<NotificationPreferences> => {
         allow_video_uploads: true,
         allow_dm_requests: true,
     };
-} as any;
+}) as any;
+
 
 // --- Reusable Component for Notification Toggles ---
 
@@ -183,7 +185,7 @@ export default function NotificationsScreen() {
 
         {/* --- 1. General Control --- */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>General</Text>
+          <Text style={styles.sectionTitle}>GENERAL</Text>
           <NotificationToggleItem
             icon={Bell}
             title="Push Notifications"
@@ -191,13 +193,13 @@ export default function NotificationsScreen() {
             value={preferences.allow_global}
             onValueChange={(val) => handleUpdate('allow_global', val)}
             isDisabled={isSaving}
-            isGlobalOff={false} // This toggle cannot be globally off itself
+            isGlobalOff={false} 
           />
         </View>
 
         {/* --- 2. Interactions --- */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Interactions</Text>
+          <Text style={styles.sectionTitle}>INTERACTIONS</Text>
           <NotificationToggleItem
             icon={Heart}
             title="Likes"
@@ -238,7 +240,7 @@ export default function NotificationsScreen() {
 
         {/* --- 3. Content & Messaging --- */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Content & Messaging</Text>
+          <Text style={styles.sectionTitle}>CONTENT & MESSAGING</Text>
           <NotificationToggleItem
             icon={Video}
             title="New Video/Reel Uploads"
