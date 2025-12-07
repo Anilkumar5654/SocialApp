@@ -10,61 +10,71 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Download, CheckCircle, Clock } from 'lucide-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
+import { api } from '@/services/api'; 
 
-// --- MOCK DATA ---
+// --- TYPE DEFINITIONS for Data Export ---
 interface Request {
     id: number;
     date: string;
     status: 'Ready' | 'Processing' | 'Expired';
     format: string;
     size: string;
+    downloadUrl?: string; // New field for actual download link
 }
 
-// Simulated list of past data requests
-const initialRequests: Request[] = [
-  { id: 101, date: '2025-11-01', status: 'Ready', format: 'JSON', size: '105 MB' },
-  { id: 102, date: '2025-12-01', status: 'Expired', format: 'HTML', size: '120 MB' },
-];
+// Mock API functions for data export (Must be defined in api.ts settings module)
+// Assuming API Endpoints: /settings/data/requests (GET) and /settings/data/request-export (POST)
 
 export default function DataExportScreen() {
-  const [isRequesting, setIsRequesting] = useState(false);
-  const [pastRequests, setPastRequests] = useState(initialRequests);
+  const queryClient = useQueryClient();
   const [selectedFormat, setSelectedFormat] = useState<'JSON' | 'HTML'>('JSON');
 
-  const handleRequestData = async () => {
-    setIsRequesting(true);
-    
+  // 1. Fetch current requests status
+  const { data: pastRequests = [], isLoading: isLoadingRequests, isError: isErrorRequests } = useQuery<Request[]>({
+    queryKey: ['dataExportRequests'],
+    // NOTE: Assuming api.settings has getDataExportRequests: async () => this.request('/settings/data/requests')
+    queryFn: async () => {
+        // Mocking the API fetch for request history
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return [
+            { id: 101, date: '2025-11-01', status: 'Ready', format: 'JSON', size: '105 MB', downloadUrl: 'mock/download/101' },
+            { id: 102, date: '2025-12-01', status: 'Processing', format: 'HTML', size: '...', downloadUrl: undefined },
+        ];
+    },
+  });
+
+  // 2. Mutation for creating a new request
+  const requestMutation = useMutation({
+    mutationFn: (format: 'JSON' | 'HTML') => {
+        // NOTE: Assuming api.settings has requestDataExport: async (format) => this.request('/settings/data/request-export', { method: 'POST', body: JSON.stringify({ format }) })
+        return new Promise((resolve) => {
+            setTimeout(() => resolve({ success: true }), 300); // Mocking API call
+        });
+    },
+    onSuccess: () => {
+        Alert.alert('Request Sent', 'Your data export request is processing. Check this page later to download your file.');
+        queryClient.invalidateQueries({ queryKey: ['dataExportRequests'] });
+    },
+    onError: () => {
+        Alert.alert('Error', 'Failed to submit data request. Please try again.');
+    },
+  });
+  
+  const isRequesting = requestMutation.isPending;
+
+  const handleRequestData = () => {
     // Safety check before processing sensitive data request
     Alert.alert(
       'Confirm Data Request',
       `You are requesting a copy of your data in ${selectedFormat} format. This process may take several hours.`,
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => setIsRequesting(false) },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Request',
-          onPress: async () => {
-            try {
-              // API call to backend service to start the data export process
-              // await api.data.requestExport({ format: selectedFormat });
-
-              const newRequest: Request = {
-                id: Date.now(),
-                date: new Date().toISOString().split('T')[0],
-                status: 'Processing',
-                format: selectedFormat,
-                size: '...',
-              };
-
-              setPastRequests([newRequest, ...pastRequests]);
-              Alert.alert('Request Sent', 'Your data export request is processing. Check this page later to download your file.');
-            } catch (e) {
-              Alert.alert('Error', 'Failed to submit data request.');
-            } finally {
-              setIsRequesting(false);
-            }
-          },
+          onPress: () => requestMutation.mutate(selectedFormat),
           style: 'default',
         },
       ]
@@ -72,8 +82,9 @@ export default function DataExportScreen() {
   };
   
   const handleDownload = (request: Request) => {
-      // Logic for actual file download
-      Alert.alert('Download', `Downloading data archive from ${request.date} (${request.size}).`);
+      // Logic for actual file download using Linking.openURL or an external browser
+      Alert.alert('Download', `Simulating download of archive from ${request.date}.`);
+      // Linking.openURL(request.downloadUrl!); 
   };
 
   const getStatusColor = (status: Request['status']) => {
@@ -89,8 +100,8 @@ export default function DataExportScreen() {
     }
   };
   
-  const renderRequestItem = ({ item }: { item: Request }) => (
-    <View style={styles.requestItem}>
+  const renderRequestItem = (item: Request) => (
+    <View key={item.id} style={styles.requestItem}>
       <View style={styles.requestInfo}>
         <Text style={styles.requestDate}>{item.date} ({item.format})</Text>
         <Text style={[styles.requestStatus, { color: getStatusColor(item.status) }]}>
@@ -140,6 +151,7 @@ export default function DataExportScreen() {
                   selectedFormat === format && styles.formatSelected,
                 ]}
                 onPress={() => setSelectedFormat(format as 'JSON' | 'HTML')}
+                disabled={isRequesting}
               >
                 <Text style={styles.formatText}>{format}</Text>
               </TouchableOpacity>
@@ -150,9 +162,9 @@ export default function DataExportScreen() {
         {/* --- 3. Request Button --- */}
         <View style={styles.section}>
           <TouchableOpacity
-            style={[styles.requestButton, isRequesting && styles.requestButtonDisabled]}
+            style={[styles.requestButton, (isRequesting || isLoadingRequests) && styles.requestButtonDisabled]}
             onPress={handleRequestData}
-            disabled={isRequesting}
+            disabled={isRequesting || isLoadingRequests}
           >
             {isRequesting ? (
               <ActivityIndicator color={Colors.text} />
@@ -171,7 +183,9 @@ export default function DataExportScreen() {
         {/* --- 4. Request History --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Request History</Text>
-          {pastRequests.length === 0 ? (
+          {isLoadingRequests ? (
+              <ActivityIndicator color={Colors.primary} style={{ padding: 20 }} />
+          ) : pastRequests.length === 0 ? (
             <Text style={styles.emptyHistoryText}>No past requests found.</Text>
           ) : (
             pastRequests.map(renderRequestItem)
@@ -239,7 +253,7 @@ const styles = StyleSheet.create({
   },
   formatSelected: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '20', // Light primary background
+    backgroundColor: Colors.primary + '20',
   },
   formatText: {
     color: Colors.text,
