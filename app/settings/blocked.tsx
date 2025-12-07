@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -18,24 +17,13 @@ import { api } from '@/services/api';
 
 // --- TYPE DEFINITIONS ---
 interface BlockedUser {
-  id: string;
+  id: string; // Database ID of the blocked user (sent as string from PHP)
   username: string;
   name: string;
   avatar: string;
 }
 
-// Mock API function (Assuming setup in api.ts)
-api.settings.getBlockedUsers = async (): Promise<BlockedUser[]> => {
-    // Simulating API latency and data fetch
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-      { id: '1', username: 'toxic_user_1', name: 'Toxic Troll', avatar: 'url1' },
-      { id: '2', username: 'spam_bot_42', name: 'Spam Bot', avatar: 'url2' },
-      { id: '3', username: 'old_ex_2', name: 'Old Acquaintance', avatar: 'url3' },
-    ];
-};
-
-// --- Custom Confirmation Modal Component ---
+// --- Custom Confirmation Modal Component (Theme Friendly) ---
 interface UnblockConfirmationModalProps {
     isVisible: boolean;
     userToUnblock: BlockedUser | null;
@@ -107,7 +95,7 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
   
   return (
     <View style={styles.userItem}>
-      {/* Avatar Placeholder */}
+      {/* Avatar Placeholder: Use first letter of username for simplicity */}
       <View style={styles.avatarPlaceholder}>
         <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
       </View>
@@ -138,6 +126,7 @@ export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
   const [userToUnblock, setUserToUnblock] = useState<BlockedUser | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // State for theme-friendly error message
 
   // 1. Fetch blocked users list using useQuery
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
@@ -151,10 +140,12 @@ export default function BlockedUsersScreen() {
     
     // Optimistic Update
     onMutate: async (userIdToUnblock) => {
-        setModalVisible(false); // Close modal immediately
+        setModalVisible(false); 
+        setErrorMessage(null); // Clear previous errors
         await queryClient.cancelQueries({ queryKey: ['blockedUsersList'] });
         const previousBlockedUsers = queryClient.getQueryData<BlockedUser[]>(['blockedUsersList']);
         
+        // Remove the user from the list immediately
         queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (old) => 
             old ? old.filter(user => user.id !== userIdToUnblock) : []
         );
@@ -162,12 +153,14 @@ export default function BlockedUsersScreen() {
         return { previousBlockedUsers };
     },
     onSuccess: () => {
-         // Use a toast or custom notification for success, not native Alert
-         console.log('User successfully unblocked and list updated.');
+         // Use custom toast/snackbar implementation here instead of native alert
+         console.log('User successfully unblocked and list updated. (Use custom Toast)');
     },
     onError: (err, userIdToUnblock, context) => {
+        // Rollback on failure
         queryClient.setQueryData(['blockedUsersList'], context?.previousBlockedUsers);
-        Alert.alert('Error', 'Failed to unblock user. Please try again.');
+        // Set a theme-friendly error message
+        setErrorMessage('Failed to unblock user. Please try again.'); 
     },
     onSettled: () => {
         setUserToUnblock(null);
@@ -186,7 +179,7 @@ export default function BlockedUsersScreen() {
   
   // Handler called by the custom modal's confirm button
   const handleUnblockConfirm = (userId: string) => {
-      unblockMutation.mutate(userId);
+      unblockMutation.mutate(userId); 
   };
   
   const renderEmptyList = () => (
@@ -205,6 +198,7 @@ export default function BlockedUsersScreen() {
       );
   }
   
+  // Display general loading/error screen
   if (isError || !blockedUsers) {
        return (
           <View style={[styles.container, styles.center]}>
@@ -235,13 +229,23 @@ export default function BlockedUsersScreen() {
           isLoading={unblockMutation.isPending}
       />
       
+      {/* Theme-friendly error message display */}
+      {errorMessage && (
+        <View style={styles.globalErrorBar}>
+          <Text style={styles.globalErrorText}>{errorMessage}</Text>
+          <TouchableOpacity onPress={() => setErrorMessage(null)}>
+            <X color={Colors.text} size={18} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={blockedUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <BlockedUserItem 
             user={item} 
-            onUnblock={handleUnblockModalOpen} // Use modal opener
+            onUnblock={handleUnblockModalOpen} 
             isUnblocking={unblockMutation.isPending && userToUnblock?.id === item.id}
           />
         )}
@@ -343,6 +347,21 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginTop: 5,
+  },
+  // New styles for theme-friendly global error bar
+  globalErrorBar: {
+    backgroundColor: Colors.danger, // Or a custom red tone
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  globalErrorText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '500' as const,
+    flexShrink: 1,
+    marginRight: 10,
   }
 });
 
@@ -403,7 +422,7 @@ const modalStyles = StyleSheet.create({
         borderColor: Colors.border,
     },
     buttonConfirm: {
-        backgroundColor: Colors.danger, // Use danger for destructive action (Unblock)
+        backgroundColor: Colors.danger, // Use danger for Unblock
     },
     textStyle: {
         color: Colors.text,
