@@ -30,7 +30,7 @@ class ApiClient {
   }
 
   private async request<T>(
-    endpoint: string,
+    endpoint: string, // Clean URL (no .php)
     options: RequestInit = {}
   ): Promise<T> {
     const startTime = Date.now();
@@ -70,6 +70,7 @@ class ApiClient {
     }
 
     try {
+      // Use the clean endpoint here
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers,
@@ -83,7 +84,6 @@ class ApiClient {
       try {
         responseData = rawResponseText ? JSON.parse(rawResponseText) : null;
       } catch (jsonError: any) {
-        // Handle non-JSON response (e.g., plain text error)
         responseData = rawResponseText;
       }
 
@@ -160,16 +160,16 @@ class ApiClient {
   };
 
   posts = {
-    getPost: async (id: string) => this.request<{ post: any }>(`/posts/details.php?post_id=${id}`), 
+    getPost: async (id: string) => this.request<{ post: any }>(`/posts/details?post_id=${id}`), 
     create: async (formData: FormData) => this.request('/posts/create', { method: 'POST', body: formData }),
-    delete: async (id: string) => this.request(`/posts/action/delete.php?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    like: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/like.php', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    unlike: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/unlike.php', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    comment: async (id: string, content: string) => this.request('/posts/action/comment.php', { method: 'POST', body: JSON.stringify({ post_id: id, content }) }),
-    getComments: async (id: string, page: number = 1) => this.request<{ comments: any[] }>(`/posts/comments.php?post_id=${id}&page=${page}`),
-    deleteComment: async (commentId: string) => this.request(`/posts/action/comment.php?comment_id=${commentId}`, { method: 'DELETE' }),
-    share: async (id: string) => this.request(`/posts/action/share.php`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    report: async (postId: string, reason: string, description?: string) => this.request('/posts/action/report.php', { method: 'POST', body: JSON.stringify({ post_id: postId, reason, description }) }),
+    delete: async (id: string) => this.request(`/posts/action/delete?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
+    like: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/like', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
+    unlike: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/unlike', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
+    comment: async (id: string, content: string) => this.request('/posts/action/comment', { method: 'POST', body: JSON.stringify({ post_id: id, content }) }),
+    getComments: async (id: string, page: number = 1) => this.request<{ comments: any[] }>(`/posts/comments?post_id=${id}&page=${page}`),
+    deleteComment: async (commentId: string) => this.request(`/posts/action/comment?comment_id=${commentId}`, { method: 'DELETE' }),
+    share: async (id: string) => this.request(`/posts/action/share`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
+    report: async (postId: string, reason: string, description?: string) => this.request('/posts/action/report', { method: 'POST', body: JSON.stringify({ post_id: postId, reason, description }) }),
   };
 
   reels = {
@@ -177,15 +177,15 @@ class ApiClient {
     getDetails: async (id: string) => this.request<{ reel: any }>(`/reels/details?id=${id}`),
     like: async (id: string) => this.request('/reels/action/like', { method: 'POST', body: JSON.stringify({ reel_id: id }) }),
     unlike: async (id: string) => this.request('/reels/action/unlike', { method: 'POST', body: JSON.stringify({ reel_id: id }) }),
-    comment: async (id: string, content: string) => this.request('/reels/action/comment.php', { method: 'POST', body: JSON.stringify({ reel_id: id, content }) }),
+    comment: async (id: string, content: string) => this.request('/reels/action/comment', { method: 'POST', body: JSON.stringify({ reel_id: id, content }) }),
     getComments: async (id: string, page: number = 1) => this.request<{ comments: any[] }>(`/reels/comments?reel_id=${id}&page=${page}`),
     deleteComment: async (commentId: string) => this.request(`/reels/action/comment?comment_id=${commentId}`, { method: 'DELETE' }),
     share: async (id: string) => this.request(`/reels/action/share`, { method: 'POST', body: JSON.stringify({ reel_id: id }) }),
-    report: async (reelId: string, reason: string) => this.request('/reels/action/report.php', { method: 'POST', body: JSON.stringify({ reel_id: reelId, reason }) }),
-    delete: async (id: string) => this.request(`/posts/action/delete.php?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id, type: 'reel' }) }),
+    report: async (reelId: string, reason: string) => this.request('/reels/action/report', { method: 'POST', body: JSON.stringify({ reel_id: reelId, reason }) }),
+    delete: async (id: string) => this.request(`/posts/action/delete?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id, type: 'reel' }) }),
     upload: async (formData: FormData) => this.request('/reels/upload', { method: 'POST', body: formData }),
     trackView: async (reelId: string, watchDuration: number, totalDuration: number) => {
-      return this.request('/reels/track-view.php', {
+      return this.request('/reels/track-view', {
         method: 'POST',
         body: JSON.stringify({ reel_id: reelId, watch_duration: watchDuration, total_duration: totalDuration })
       });
@@ -220,7 +220,7 @@ class ApiClient {
         return this.request<{ videos: any[]; total: number }>(`/videos/search?${params.toString()}`);
     },
     report: async (videoId: string, reason: string = 'Inappropriate', description?: string) => {
-      return this.request('/videos/action/report.php', {
+      return this.request('/videos/action/report', { // Removed .php
         method: 'POST',
         body: JSON.stringify({ video_id: videoId, reason, description }),
       });
@@ -232,7 +232,7 @@ class ApiClient {
         });
     },
     delete: async (videoId: string) => {
-      return this.request('/videos/action/delete.php', { 
+      return this.request('/videos/action/delete', { // Removed .php
           method: 'POST', 
           body: JSON.stringify({ video_id: videoId }),
       });
@@ -282,75 +282,74 @@ class ApiClient {
       hashtags: async (tag: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/hashtags?tag=${encodeURIComponent(tag)}&page=${page}`),
   };
 
-  // <<< FINAL MODULE: SETTINGS >>>
+  // <<< FINAL MODULE: SETTINGS (ALL .php REMOVED) >>>
   settings = {
       // --- PRIVACY & VISIBILITY ---
-      getPrivacySettings: async () => this.request('/settings/privacy.php?action=get'),
-      updatePrivacySettings: async (data: any) => this.request('/settings/privacy.php?action=update', { 
+      getPrivacySettings: async () => this.request('/settings/privacy?action=get'),
+      updatePrivacySettings: async (data: any) => this.request('/settings/privacy?action=update', { 
           method: 'POST', 
           body: JSON.stringify(data) 
       }),
       
       // --- PASSWORD & 2FA ---
-      changePassword: async (currentPassword: string, newPassword: string) => this.request('/settings/security/change-password.php', { 
+      changePassword: async (currentPassword: string, newPassword: string) => this.request('/settings/security/change-password', { 
           method: 'POST', 
           body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) 
       }),
-      get2FAStatus: async () => this.request('/settings/security/2fa/status.php'),
-      generate2FASecret: async () => this.request('/settings/security/2fa/generate-secret.php', { method: 'POST' }),
-      enable2FA: async (secret: string, code: string) => this.request('/settings/security/2fa/enable.php', { 
+      get2FAStatus: async () => this.request('/settings/security/2fa/status'),
+      generate2FASecret: async () => this.request('/settings/security/2fa/generate-secret', { method: 'POST' }),
+      enable2FA: async (secret: string, code: string) => this.request('/settings/security/2fa/enable', { 
           method: 'POST', 
           body: JSON.stringify({ secret: secret, code: code }) 
       }),
-      disable2FA: async (code: string) => this.request('/settings/security/2fa/disable.php', { 
+      disable2FA: async (code: string) => this.request('/settings/security/2fa/disable', { 
           method: 'POST', 
           body: JSON.stringify({ code: code }) 
       }),
 
       // --- E2EE KEY MANAGEMENT (Future Use) ---
-      backupKey: async () => this.request('/settings/security/e2ee/backup.php', { method: 'POST' }),
-      generateNewKey: async () => this.request('/settings/security/e2ee/generate-new.php', { method: 'POST' }),
-      setRecoveryPhrase: async (phrase: string) => this.request('/settings/security/e2ee/set-recovery.php', { 
+      backupKey: async () => this.request('/settings/security/e2ee/backup', { method: 'POST' }),
+      generateNewKey: async () => this.request('/settings/security/e2ee/generate-new', { method: 'POST' }),
+      setRecoveryPhrase: async (phrase: string) => this.request('/settings/security/e2ee/set-recovery', { 
           method: 'POST', 
           body: JSON.stringify({ recovery_phrase: phrase }) 
       }),
       
       // --- NOTIFICATIONS ---
-      getNotifications: async () => this.request('/settings/notifications.php?action=get'),
-      updateNotifications: async (data: any) => this.request('/settings/notifications.php?action=update', { 
+      getNotifications: async () => this.request('/settings/notifications?action=get'),
+      updateNotifications: async (data: any) => this.request('/settings/notifications?action=update', { 
           method: 'POST', 
           body: JSON.stringify(data) 
       }),
 
       // --- ADS & DATA ---
-      getAdPreferences: async () => this.request('/settings/ads/preferences.php?action=get'),
-      updateAdPreferences: async (data: any) => this.request('/settings/ads/preferences.php?action=update', { 
+      getAdPreferences: async () => this.request('/settings/ads/preferences?action=get'),
+      updateAdPreferences: async (data: any) => this.request('/settings/ads/preferences?action=update', { 
           method: 'POST', 
           body: JSON.stringify(data) 
       }),
-      clearAdHistory: async () => this.request('/settings/ads/clear-history.php', { method: 'POST' }),
-      getAdHistory: async () => this.request('/settings/ads/history.php'), // Added explicit history endpoint
+      clearAdHistory: async () => this.request('/settings/ads/clear-history', { method: 'POST' }),
+      getAdHistory: async () => this.request('/settings/ads/history'),
 
       // --- USER MANAGEMENT ---
-      getBlockedUsers: async () => this.request('/settings/users/blocked.php'),
-      unblockUser: async (userId: string) => this.request('/settings/users/unblock.php', { 
+      getBlockedUsers: async () => this.request('/settings/users/blocked'),
+      unblockUser: async (userId: string) => this.request('/settings/users/unblock', { 
           method: 'POST', 
           body: JSON.stringify({ user_id: userId }) 
       }),
       
       // --- DATA EXPORT ---
-      getDataExportRequests: async () => this.request('/settings/data/requests.php'),
-      requestDataExport: async (format: string) => this.request('/settings/data/request-export.php', { 
+      getDataExportRequests: async () => this.request('/settings/data/requests'),
+      requestDataExport: async (format: string) => this.request('/settings/data/request-export', { 
           method: 'POST', 
           body: JSON.stringify({ format: format }) 
       }),
 
       // --- GENERAL ---
-      updateLanguage: async (langCode: string) => this.request('/settings/general/language.php', { 
+      updateLanguage: async (langCode: string) => this.request('/settings/general/language', { 
           method: 'POST', 
           body: JSON.stringify({ language_code: langCode }) 
       }),
-
   }
 
 }
