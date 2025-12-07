@@ -12,52 +12,55 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useMutation } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
-// import { api } from '@/services/api'; // Assuming you have an API service
+import { api } from '@/services/api'; 
 
 export default function ChangePasswordScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Validation: New password must be at least 6 characters and match the confirmation field.
+  
+  // Validation: New password must be at least 6 characters and match the confirmation field, and current password must be present.
   const isFormValid = newPassword.length >= 6 && newPassword === confirmPassword && currentPassword.length > 0;
 
-  const handleChangePassword = async () => {
-    if (!isFormValid) {
-      Alert.alert('Error', 'Please fill all fields and ensure the new passwords match (min 6 characters).');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Simulate API call to change the password
-      // NOTE: In a real app, you must send currentPassword to verify identity on the backend.
-      
-      // await api.users.changePassword({
-      //   currentPassword,
-      //   newPassword,
-      // });
-
-      // Simulating Success:
-      Alert.alert('Success', 'Your password has been successfully updated.');
+  // Use useMutation for asynchronous password change operation
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) => 
+        // Use the defined API endpoint
+        api.settings.changePassword(data.currentPassword, data.newPassword),
+    
+    onSuccess: () => {
+      Alert.alert('Success', 'Your password has been successfully updated. You may need to log in again.');
       
       // Clear fields and navigate back
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       router.back(); 
+    },
+    
+    onError: (error: any) => {
+      // Handle specific API errors (e.g., current password incorrect)
+      const errorMessage = error.message || 'Failed to change password. Please check your current password.';
+      Alert.alert('Error', errorMessage);
+    },
+  });
 
-    } catch (error: any) {
-      // Simulating Error (e.g., current password incorrect or server failure):
-      Alert.alert('Error', error.message || 'Failed to change password. Please check your current password.');
-    } finally {
-      setIsLoading(false);
+  const handleChangePassword = () => {
+    if (!isFormValid) {
+      Alert.alert('Error', 'Please fill all fields and ensure the new passwords match (min 6 characters).');
+      return;
     }
+    
+    changePasswordMutation.mutate({
+        currentPassword,
+        newPassword
+    });
   };
+  
+  const isLoading = changePasswordMutation.isPending;
 
   return (
     <View style={styles.container}>
@@ -111,7 +114,7 @@ export default function ChangePasswordScreen() {
           />
 
           <TouchableOpacity
-            style={[styles.button, !isFormValid && styles.buttonDisabled]}
+            style={[styles.button, (!isFormValid || isLoading) && styles.buttonDisabled]}
             onPress={handleChangePassword}
             disabled={!isFormValid || isLoading}
           >
