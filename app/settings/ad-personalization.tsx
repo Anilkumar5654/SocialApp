@@ -28,8 +28,8 @@ interface AdPreferences {
     interests: Interest[];
 }
 
-// Mock API functions (Assuming setup in api.ts)
-api.settings.getAdPreferences = async (): Promise<AdPreferences> => {
+// --- MOCK API FUNCTION (FIXED SYNTAX) ---
+api.settings.getAdPreferences = (async (): Promise<AdPreferences> => {
     await new Promise(resolve => setTimeout(resolve, 500));
     return {
         is_global_personalization_enabled: true,
@@ -40,7 +40,7 @@ api.settings.getAdPreferences = async (): Promise<AdPreferences> => {
           { id: 4, category: 'Travel', is_active: true },
         ],
     };
-} as any;
+}) as any; // <-- FIX: Wrap function in parentheses
 
 // --- Reusable Component for Toggle Switches ---
 interface SettingToggleItemProps {
