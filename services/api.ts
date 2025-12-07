@@ -161,30 +161,21 @@ class ApiClient {
   };
 
   posts = {
-    // 👇 FIX: Endpoint ko 'posts/details.php?post_id=' use karne ke liye update kiya gaya hai
     getPost: async (id: string) => this.request<{ post: any }>(`/posts/details.php?post_id=${id}`), 
-    
     create: async (formData: FormData) => this.request('/posts/create', { method: 'POST', body: formData }),
-    
     delete: async (id: string) => this.request(`/posts/action/delete.php?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    
     like: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/like.php', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
     unlike: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/posts/action/unlike.php', { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-
     comment: async (id: string, content: string) => this.request('/posts/action/comment.php', { method: 'POST', body: JSON.stringify({ post_id: id, content }) }),
     getComments: async (id: string, page: number = 1) => this.request<{ comments: any[] }>(`/posts/comments.php?post_id=${id}&page=${page}`),
     deleteComment: async (commentId: string) => this.request(`/posts/action/comment.php?comment_id=${commentId}`, { method: 'DELETE' }),
-
     share: async (id: string) => this.request(`/posts/action/share.php`, { method: 'POST', body: JSON.stringify({ post_id: id }) }),
-    
     report: async (postId: string, reason: string, description?: string) => this.request('/posts/action/report.php', { method: 'POST', body: JSON.stringify({ post_id: postId, reason, description }) }),
   };
 
-  // --- REELS MODULE (Corrected) ---
   reels = {
     getReels: async (page: number = 1, limit: number = 10) => this.request<{ reels: any[]; hasMore: boolean }>(`/reels?page=${page}&limit=${limit}`),
     getDetails: async (id: string) => this.request<{ reel: any }>(`/reels/details?id=${id}`),
-    
     like: async (id: string) => this.request('/reels/action/like', { method: 'POST', body: JSON.stringify({ reel_id: id }) }),
     unlike: async (id: string) => this.request('/reels/action/unlike', { method: 'POST', body: JSON.stringify({ reel_id: id }) }),
     comment: async (id: string, content: string) => this.request('/reels/action/comment.php', { method: 'POST', body: JSON.stringify({ reel_id: id, content }) }),
@@ -194,7 +185,6 @@ class ApiClient {
     report: async (reelId: string, reason: string) => this.request('/reels/action/report.php', { method: 'POST', body: JSON.stringify({ reel_id: reelId, reason }) }),
     delete: async (id: string) => this.request(`/posts/action/delete.php?id=${id}`, { method: 'POST', body: JSON.stringify({ post_id: id, type: 'reel' }) }),
     upload: async (formData: FormData) => this.request('/reels/upload', { method: 'POST', body: formData }),
-
     trackView: async (reelId: string, watchDuration: number, totalDuration: number) => {
       return this.request('/reels/track-view.php', {
         method: 'POST',
@@ -203,7 +193,6 @@ class ApiClient {
     }
   };
 
-  // --- VIDEOS MODULE (FINAL & CORRECTED + SEARCH ADDED) ---
   videos = {
     getVideos: async (page: number = 1, limit: number = 10, category?: string) => {
       const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
@@ -211,53 +200,39 @@ class ApiClient {
       return this.request<{ videos: any[]; hasMore: boolean }>(`/videos?${params.toString()}`);
     },
     getRecommended: async (videoId: string) => this.request<{ videos: any[] }>(`/videos/recommended?video_id=${videoId}`),
-    
     trackWatch: async (videoId: string, watchDuration: number, completionRate: number) => {
       return this.request('/videos/track-watch', {
         method: 'POST',
         body: JSON.stringify({ video_id: videoId, video_type: 'video', watch_duration: watchDuration, completion_rate: completionRate })
       });
     },
-
     view: async (id: string) => this.request(`/videos/action/view`, { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     like: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/videos/action/like', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     unlike: async (id: string) => this.request<{ isLiked: boolean; likes: number }>('/videos/action/unlike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
-    
-    // Dislike/Undislike actions
     dislike: async (id: string) => this.request<{ isDisliked: boolean }>('/videos/action/dislike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     undislike: async (id: string) => this.request<{ isDisliked: boolean }>('/videos/action/undislike', { method: 'POST', body: JSON.stringify({ video_id: id }) }),
-
     comment: async (id: string, content: string) => this.request('/videos/action/comment', { method: 'POST', body: JSON.stringify({ video_id: id, content }) }),
     getComments: async (id: string, page: number = 1) => this.request<{ comments: any[] }>(`/videos/comments?video_id=${id}&page=${page}`),
     share: async (id: string) => this.request(`/videos/action/share`, { method: 'POST', body: JSON.stringify({ video_id: id }) }),
     upload: async (formData: FormData) => this.request('/videos/upload', { method: 'POST', body: formData }),
     getDetails: async (id: string) => this.request<{ video: any }>(`/videos/details?id=${id}`),
-
-    // <<< NEW: USER REQUESTED VIDEO SEARCH FUNCTION >>>
     search: async (query: string, page: number = 1, limit: number = 20) => {
         const params = new URLSearchParams({ q: encodeURIComponent(query), page: page.toString(), limit: limit.toString() });
-        // Endpoint: /videos/search
         return this.request<{ videos: any[]; total: number }>(`/videos/search?${params.toString()}`);
     },
-
     report: async (videoId: string, reason: string = 'Inappropriate', description?: string) => {
-      // Endpoint: /videos/action/report.php
       return this.request('/videos/action/report.php', {
         method: 'POST',
         body: JSON.stringify({ video_id: videoId, reason, description }),
       });
     },
-    
     save: async (videoId: string) => {
-        // Endpoint: /videos/action/save
         return this.request<{ isSaved: boolean }>('/videos/action/save', { 
             method: 'POST',
             body: JSON.stringify({ video_id: videoId }),
         });
     },
-
     delete: async (videoId: string) => {
-      // Endpoint: /videos/action/delete.php
       return this.request('/videos/action/delete.php', { 
           method: 'POST', 
           body: JSON.stringify({ video_id: videoId }),
@@ -307,6 +282,46 @@ class ApiClient {
       posts: async (query: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/posts?q=${encodeURIComponent(query)}&page=${page}`),
       hashtags: async (tag: string, page: number = 1) => this.request<{ posts: any[] }>(`/search/hashtags?tag=${encodeURIComponent(tag)}&page=${page}`),
   };
+
+  // <<< NEW MODULE: SETTINGS (Per User Request) >>>
+  settings = {
+      // Endpoint for Privacy Settings (used by privacy.tsx)
+      getPrivacySettings: async () => this.request('/settings/privacy.php?action=get'),
+      updatePrivacySettings: async (data: any) => this.request('/settings/privacy.php?action=update', { 
+          method: 'POST', 
+          body: JSON.stringify(data) 
+      }),
+      
+      // Password, 2FA, Blocked Users, etc.
+      changePassword: async (currentPassword: string, newPassword: string) => this.request('/settings/security/change-password.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) 
+      }),
+      enable2FA: async (secret: string, code: string) => this.request('/settings/security/2fa/enable.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ secret: secret, code: code }) 
+      }),
+      disable2FA: async (code: string) => this.request('/settings/security/2fa/disable.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ code: code }) 
+      }),
+      getAdPreferences: async () => this.request('/settings/ads/preferences.php?action=get'),
+      updateAdPreferences: async (data: any) => this.request('/settings/ads/preferences.php?action=update', { 
+          method: 'POST', 
+          body: JSON.stringify(data) 
+      }),
+      getBlockedUsers: async () => this.request('/settings/users/blocked.php'),
+      unblockUser: async (userId: string) => this.request('/settings/users/unblock.php', { 
+          method: 'POST', 
+          body: JSON.stringify({ user_id: userId }) 
+      }),
+      getNotifications: async () => this.request('/settings/notifications.php?action=get'),
+      updateNotifications: async (data: any) => this.request('/settings/notifications.php?action=update', { 
+          method: 'POST', 
+          body: JSON.stringify(data) 
+      }),
+  }
+
 }
 
 export const api = new ApiClient(API_BASE_URL, MEDIA_BASE_URL);
