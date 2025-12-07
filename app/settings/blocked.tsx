@@ -9,27 +9,93 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { UserMinus, X, Check, Clock, UserCheck } from 'lucide-react-native'; // Clock icon added
+import { UserMinus, X, Check, Clock, UserCheck } from 'lucide-react-native'; 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
 import { api } from '@/services/api'; 
-// import { formatDistanceToNowStrict } from 'date-fns'; // Import this if using date-fns
 
-// --- TYPE DEFINITIONS (UPDATED) ---
+// --- TYPE DEFINITIONS ---
 interface BlockedUser {
   id: string; 
   username: string;
   name: string;
   avatar: string | null;
-  bio: string | null;            // 💡 NEW
-  is_verified: boolean;         // 💡 NEW
-  blocked_at: string;           // 💡 NEW (Timestamp from database)
+  bio: string | null;            
+  is_verified: boolean;         
+  blocked_at: string;           
 }
 
-// ... (Modal Component remains the same)
+// Define the expected server response structure
+interface BlockedUsersResponse {
+    success: boolean;
+    data: BlockedUser[];
+    message?: string;
+}
 
-// --- Component for a single blocked user row (MODIFIED) ---
+// --- Custom Confirmation Modal Component (Theme Friendly) ---
+// 💡 NOTE: This component is defined *outside* the main export function.
+interface UnblockConfirmationModalProps {
+    isVisible: boolean;
+    userToUnblock: BlockedUser | null;
+    onClose: () => void;
+    onConfirm: (userId: string) => void;
+    isLoading: boolean;
+}
+
+const UnblockConfirmationModal: React.FC<UnblockConfirmationModalProps> = ({
+    isVisible,
+    userToUnblock,
+    onClose,
+    onConfirm,
+    isLoading,
+}) => {
+    if (!userToUnblock) return null;
+
+    return (
+        <Modal
+            animationType="fade"
+            transparent={true}
+            visible={isVisible}
+            onRequestClose={onClose}
+        >
+            <View style={modalStyles.centeredView}>
+                <View style={modalStyles.modalView}>
+                    <Text style={modalStyles.modalTitle}>Unblock {userToUnblock.username}?</Text>
+                    <Text style={modalStyles.modalText}>
+                        Unblocked users will be able to view your profile and send you messages again.
+                    </Text>
+
+                    <View style={modalStyles.buttonContainer}>
+                        <TouchableOpacity
+                            style={[modalStyles.button, modalStyles.buttonCancel]}
+                            onPress={onClose}
+                            disabled={isLoading}
+                        >
+                            <X color={Colors.text} size={18} />
+                            <Text style={modalStyles.textStyle}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[modalStyles.button, modalStyles.buttonConfirm]}
+                            onPress={() => onConfirm(userToUnblock.id)}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color={Colors.text} size="small" />
+                            ) : (
+                                <Check color={Colors.text} size={18} />
+                            )}
+                            <Text style={modalStyles.textStyle}>Unblock</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+// --- Component for a single blocked user row ---
+// 💡 NOTE: This component is defined *outside* the main export function.
 interface BlockedUserItemProps {
   user: BlockedUser;
   onUnblock: (userId: string) => void;
@@ -39,16 +105,13 @@ interface BlockedUserItemProps {
 const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUnblocking }) => {
   const isCurrentlyUnblocking = isUnblocking;
   
-  // Function to format the blocked time (e.g., "3 months ago")
   const getFormattedTime = (timestamp: string) => {
     try {
         const date = new Date(timestamp);
-        // Note: For real production, use a library like 'date-fns' or 'moment'
-        // Example using basic JS:
         const diffInDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
         if (diffInDays < 1) return "Today";
         if (diffInDays < 30) return `${diffInDays} days ago`;
-        return date.toLocaleDateString(); // Fallback to local date
+        return date.toLocaleDateString();
     } catch {
         return "Unknown Date";
     }
@@ -90,14 +153,7 @@ const BlockedUserItem: React.FC<BlockedUserItemProps> = ({ user, onUnblock, isUn
   );
 };
 
-// --- Main Screen Component (useQuery remains the same with select: response.data) ---
-
-// Define the expected server response structure
-interface BlockedUsersResponse {
-    success: boolean;
-    data: BlockedUser[];
-    message?: string;
-}
+// --- Main Screen Component ---
 
 export default function BlockedUsersScreen() {
   const queryClient = useQueryClient();
@@ -109,10 +165,12 @@ export default function BlockedUsersScreen() {
   const { data: blockedUsers, isLoading: isLoadingList, isError } = useQuery<BlockedUser[]>({
     queryKey: ['blockedUsersList'],
     queryFn: api.settings.getBlockedUsers,
+    
+    // FIX 1: Selects the 'data' array from the server response object
     select: (response: BlockedUsersResponse) => response.data,
   });
 
-  // 2. Unblock Mutation (The onMutate logic below is the final fix for the 'old.filter' error)
+  // 2. Unblock Mutation (Fixes the "old.filter is not a function" error)
   const unblockMutation = useMutation({
     mutationFn: (userId: string) => api.settings.unblockUser(userId),
     
@@ -124,7 +182,7 @@ export default function BlockedUsersScreen() {
         const previousBlockedUsers = queryClient.getQueryData<BlockedUser[]>(['blockedUsersList']);
         
         queryClient.setQueryData<BlockedUser[]>(['blockedUsersList'], (oldData) => {
-            // FIX: Ensure oldData is an array before calling filter
+            // FIX 2: Ensures oldData is an array before calling filter
             const currentList = Array.isArray(oldData) ? oldData : [];
 
             return currentList.filter(user => user.id !== userIdToUnblock);
@@ -197,6 +255,7 @@ export default function BlockedUsersScreen() {
         }}
       />
       
+      {/* 💡 This component is now correctly scoped and available */}
       <UnblockConfirmationModal
           isVisible={modalVisible}
           userToUnblock={userToUnblock}
@@ -289,12 +348,12 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.text,
   },
-  bioText: { // New style for bio/name
+  bioText: { 
     fontSize: 13,
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  timeRow: { // New style for blocked time
+  timeRow: { 
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
