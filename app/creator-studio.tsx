@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl, Alert } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { Plus, Bell, LayoutDashboard, Clapperboard, BarChart2, MessageSquare, DollarSign } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
@@ -11,54 +11,105 @@ import { api } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
-// 👇 Clean Components
-import StudioHeader from '@/components/creator/StudioHeader'; // (Updated in last step)
-import DashboardView from '@/components/creator/dashboards/DashboardView'; // New View
-import EarningsView from '@/components/creator/earnings/EarningsView'; // New View
-// Import other views: ContentView, AnalyticsView, etc.
+// --- CLEAN COMPONENTS ---
+import CustomFixedHeader from '@/components/creator/micro/CustomFixedHeader';
+import CreateChannelForm from '@/components/creator/forms/CreateChannelForm';
+import StudioHeader from '@/components/creator/StudioHeader';
 
-type StudioTab = 'Dashboard' | 'Content' | 'Analytics' | 'Community' | 'Earn';
+// --- TAB VIEWS ---
+import DashboardView from '@/components/creator/dashboards/DashboardView';
+import ContentView from '@/components/creator/content/ContentView';
+import EarningsView from '@/components/creator/earnings/EarningsView';
+import AnalyticsView from '@/components/creator/analytics/AnalyticsView';
+import CommunityView from '@/components/creator/community/CommunityView';
 
-const TARGET_SUBS = 1000;
-const TARGET_WATCH_HOURS = 4000;
+type StudioTab = 'Dashboard' | 'Content' | 'Analytics' | 'Community' | 'Earnings';
 
 export default function CreatorStudioScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Local UI States
   const [activeTab, setActiveTab] = useState<StudioTab>('Dashboard');
   const [refreshing, setRefreshing] = useState(false);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
   
+  // Form States (for Create Channel)
+  const [channelName, setChannelName] = useState('');
+  const [channelDescription, setChannelDescription] = useState('');
+  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
+
   // 1. Fetch All Data (Combined Query)
-  const { data: creatorData, isLoading, refetch } = useQuery({
+  const { data: creatorData, isLoading, refetch, isError } = useQuery({
     queryKey: ['creator-full-data', user?.id],
     queryFn: async () => {
         const [channelRes, statsRes, earningsRes, contentRes] = await Promise.all([
             api.channels.checkUserChannel(user?.id || '').then(res => res.data || null),
             api.creator.getStats().catch(() => ({ stats: {} })),
             api.creator.getEarnings('month').catch(() => ({ earnings: {} })),
-            api.creator.getContent('videos', 1).catch(() => ({ content: [] })),
+            api.creator.getContent('all', 1).catch(() => ({ content: [] })),
         ]);
-        return { channel: channelRes, stats: statsRes.stats, earnings: earningsRes.earnings, recentVideos: contentRes.content };
+        
+        // Group content for the Content Tab view
+        const allContent = contentRes.content || [];
+        
+        return { 
+            channel: channelRes, 
+            stats: statsRes.stats, 
+            earnings: earningsRes.earnings, 
+            recentVideos: allContent.filter((c: any) => c.type === 'video').slice(0, 3), // Top 3 videos for dashboard
+            allContent: {
+                posts: allContent.filter((c: any) => c.type === 'post'),
+                reels: allContent.filter((c: any) => c.type === 'reel'),
+                videos: allContent.filter((c: any) => c.type === 'video'),
+            }
+        };
     },
     enabled: !!user?.id,
   });
 
   const channel = creatorData?.channel;
-  const stats = creatorData?.stats;
-  const earnings = creatorData?.earnings;
-  const recentVideos = creatorData?.recentVideos?.slice(0, 3) || [];
+  const stats = creatorData?.stats || {};
+  const earnings = creatorData?.earnings || {};
+  const recentVideos = creatorData?.recentVideos || [];
+  const allContent = creatorData?.allContent || { posts: [], reels: [], videos: [] };
   
+  // Derived Values
   const isMonetized = !!(channel?.is_monetization_enabled);
   const currentSubs = channel?.subscribers_count || 0;
   const currentWatchHours = channel?.monetization_watch_hours || 0;
-
-  // Derived Values
-  const availableEarnings = (earnings?.total_earnings || 0) - (earnings?.pending_earnings || 0) - (earnings?.paid_earnings || 0);
+  const availableEarnings = (earnings.total_earnings || 0) - (earnings.pending_earnings || 0) - (earnings.paid_earnings || 0);
   const canWithdraw = availableEarnings >= 100;
+
+  // Handlers
+  const handleEditChannel = () => router.push('/channel/edit');
+  const handleUploadVideo = () => router.push('/videos/upload');
   
-  const handleApplyMonetization = () => {
-      Alert.alert("Application Sent", "Your channel is under review.");
+  const handleContentPress = (type: 'post' | 'reel' | 'video', id: string) => {
+    if (type === 'post') router.push(`/post/${id}`);
+    if (type === 'reel') router.push('/reels'); // Navigate to reels tab
+    if (type === 'video') router.push(`/videos/player?videoId=${id}`);
   };
+
+  const handleCreateChannel = async () => { 
+      if (!channelName.trim()) return Alert.alert('Error', 'Please enter a channel name');
+      setIsCreatingChannel(true); 
+      try { 
+          const response: any = await api.channels.create({ name: channelName, description: channelDescription });
+          if (response.channel) { 
+              Alert.alert('Success', 'Channel created successfully!'); 
+              queryClient.invalidateQueries({ queryKey: ['creator-full-data'] });
+              setShowCreateChannel(false); 
+          } 
+      } catch (error: any) { 
+          Alert.alert('Error', error.message || 'Failed to create channel');
+      } finally { 
+          setIsCreatingChannel(false); 
+      } 
+  };
+  
+  const handleApplyMonetization = () => Alert.alert("Application Sent", "Your channel is under review.");
 
   const onRefresh = useCallback(() => {
       setRefreshing(true);
@@ -66,61 +117,72 @@ export default function CreatorStudioScreen() {
   }, []);
 
   const renderContent = () => {
-      if (isLoading) return <ActivityIndicator color={Colors.primary} size="large" style={styles.loader} />;
-      if (!channel) return <Text style={styles.errorText}>No Channel Found. Please Create One.</Text>;
-
+      if (isLoading && !isError) return <ActivityIndicator color={Colors.primary} size="large" style={styles.loader} />;
+      if (isError) return <Text style={styles.errorText}>Failed to load creator data.</Text>;
+      
       switch (activeTab) {
           case 'Dashboard':
-              return <DashboardView stats={stats} recentContent={recentVideos} isLoading={isLoading} />;
+              return <DashboardView stats={stats} recentContent={recentVideos} isLoading={isLoading} currentWatchHours={currentWatchHours} handleContentPress={handleContentPress} />;
           
           case 'Content':
-              // Placeholder for ContentView
-              return <View style={styles.placeholder}><Text style={styles.placeholderText}>Content List (Videos/Reels/Posts) here</Text></View>;
+              return <ContentView posts={allContent.posts} reels={allContent.reels} videos={allContent.videos} handleContentPress={handleContentPress} handleDelete={() => {}} />;
 
           case 'Earnings':
-              return (
-                  <EarningsView 
-                      channel={channel}
-                      earnings={earnings} 
-                      isMonetized={isMonetized} 
-                      availableEarnings={availableEarnings}
-                      currentSubs={currentSubs}
-                      currentWatchHours={currentWatchHours}
-                      canWithdraw={canWithdraw}
-                      handleApplyMonetization={handleApplyMonetization}
-                  />
-              );
+              return <EarningsView channel={channel} earnings={earnings} isMonetized={isMonetized} availableEarnings={availableEarnings} currentSubs={currentSubs} currentWatchHours={currentWatchHours} canWithdraw={canWithdraw} handleApplyMonetization={handleApplyMonetization} />;
 
+          case 'Analytics':
+              return <AnalyticsView />;
+              
+          case 'Community':
+              return <CommunityView />;
+              
           default:
-              return <View style={styles.placeholder}><Text style={styles.placeholderText}>Coming Soon: {activeTab}</Text></View>;
+              return <Text style={styles.placeholderText}>Coming Soon.</Text>;
       }
   };
+
+  if (showCreateChannel) {
+      return (
+          <CreateChannelForm 
+              channelName={channelName} setChannelName={setChannelName}
+              channelDescription={channelDescription} setChannelDescription={setChannelDescription}
+              isCreatingChannel={isCreatingChannel}
+              handleCreateChannel={handleCreateChannel}
+              handleCancel={() => setShowCreateChannel(false)}
+          />
+      );
+  }
+
+  if (!channel && !isLoading) {
+    return (
+        <View style={styles.container}>
+          <CustomFixedHeader user={user} onUploadPress={handleUploadVideo} />
+          <View style={[styles.centerContent, { flex: 1 }]}>
+            <Text style={styles.noChannelTitle}>No Channel Found</Text>
+            <TouchableOpacity style={styles.createChannelButton} onPress={() => setShowCreateChannel(true)}>
+                <Text style={styles.createChannelButtonText}>Create Channel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Top Bar (Header) */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <Text style={styles.topTitle}>Studio</Text>
-        <View style={styles.topIcons}>
-            <TouchableOpacity onPress={() => router.push('/videos/upload')}><Plus color={Colors.text} size={26} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/notifications')}><Bell color={Colors.text} size={24} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/profile')}>
-                <Image source={{ uri: getMediaUri(user?.avatar) }} style={styles.miniAvatar} />
-            </TouchableOpacity>
-        </View>
-      </View>
+      <CustomFixedHeader user={user} onUploadPress={handleUploadVideo} />
       
-      {/* Scrollable Content */}
       <ScrollView 
           style={styles.mainContent} 
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
-        {channel && <StudioHeader channel={channel} />}
-        {renderContent()}
+        {channel && <StudioHeader channel={channel} handleEditChannel={handleEditChannel} />}
+        <View style={{minHeight: 500}}>
+          {renderContent()}
+        </View>
       </ScrollView>
 
       {/* Bottom Tab Bar (Custom for Studio) */}
@@ -145,16 +207,13 @@ const TabItem = ({ icon: Icon, label, active, onPress }: any) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  errorText: { color: Colors.text, fontSize: 16, textAlign: 'center', marginTop: 50 },
-  
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderColor: Colors.border },
-  topTitle: { fontSize: 24, fontWeight: '800', color: Colors.text },
-  topIcons: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  miniAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#333' },
+  centerContent: { justifyContent: 'center', alignItems: 'center', padding: 32 },
+  noChannelTitle: { fontSize: 24, fontWeight: '700' as const, color: Colors.text, marginTop: 24, marginBottom: 8, textAlign: 'center' },
+  createChannelButton: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 },
+  createChannelButtonText: { fontSize: 16, fontWeight: '700' as const, color: Colors.text },
 
   mainContent: { flex: 1 },
   loader: { padding: 20, alignItems: 'center' },
-  placeholder: { padding: 40, alignItems: 'center', flex: 1, justifyContent: 'center' },
   placeholderText: { color: Colors.textSecondary, fontSize: 16 },
 
   bottomTabs: { flexDirection: 'row', borderTopWidth: 1, borderColor: Colors.border, backgroundColor: '#000', paddingTop: 12 },
