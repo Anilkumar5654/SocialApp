@@ -40,12 +40,17 @@ export default function CreatorStudioScreen() {
   const [channelDescription, setChannelDescription] = useState('');
   const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
+  // --- MONETIZATION CONSTANTS (Source: 250, 252) ---
+  const TARGET_SUBS = 1000;
+  const TARGET_WATCH_HOURS = 4000;
+
   // 1. Fetch All Data (Combined Query)
   const { data: creatorData, isLoading, refetch, isError } = useQuery({
     queryKey: ['creator-full-data', user?.id],
     queryFn: async () => {
+        // Fetch all necessary data points
         const [channelRes, statsRes, earningsRes, contentRes] = await Promise.all([
-            api.channels.checkUserChannel(user?.id || '').then(res => res.data || null),
+            api.channels.checkUserChannel(user?.id || '').then(res => res.data || null).catch(() => ({})),
             api.creator.getStats().catch(() => ({ stats: {} })),
             api.creator.getEarnings('month').catch(() => ({ earnings: {} })),
             api.creator.getContent('all', 1).catch(() => ({ content: [] })),
@@ -55,10 +60,10 @@ export default function CreatorStudioScreen() {
         const allContent = contentRes.content || [];
         
         return { 
-            channel: channelRes, 
+            channel: channelRes.channel, 
             stats: statsRes.stats, 
             earnings: earningsRes.earnings, 
-            recentVideos: allContent.filter((c: any) => c.type === 'video').slice(0, 3), // Top 3 videos for dashboard
+            recentVideos: allContent.filter((c: any) => c.type === 'video').slice(0, 3), 
             allContent: {
                 posts: allContent.filter((c: any) => c.type === 'post'),
                 reels: allContent.filter((c: any) => c.type === 'reel'),
@@ -88,8 +93,20 @@ export default function CreatorStudioScreen() {
   
   const handleContentPress = (type: 'post' | 'reel' | 'video', id: string) => {
     if (type === 'post') router.push(`/post/${id}`);
-    if (type === 'reel') router.push('/reels'); // Navigate to reels tab
+    if (type === 'reel') router.push('/reels');
     if (type === 'video') router.push(`/videos/player?videoId=${id}`);
+  };
+
+  const handleDeleteContent = async (item: any) => {
+      Alert.alert('Delete', 'Are you sure you want to delete this content?', [
+          { text: 'Cancel' },
+          { text: 'Delete', style: 'destructive', onPress: async () => {
+              const deleteApi = item.type === 'video' ? api.videos.delete(item.id) : api.reels.delete(item.id);
+              await deleteApi;
+              queryClient.invalidateQueries({ queryKey: ['creator-full-data'] });
+              Alert.alert('Success', `${item.type} deleted.`);
+          }}
+      ]);
   };
 
   const handleCreateChannel = async () => { 
@@ -113,8 +130,9 @@ export default function CreatorStudioScreen() {
 
   const onRefresh = useCallback(() => {
       setRefreshing(true);
+      queryClient.invalidateQueries({ queryKey: ['creator-full-data'] });
       refetch().then(() => setRefreshing(false));
-  }, []);
+  }, [refetch]);
 
   const renderContent = () => {
       if (isLoading && !isError) return <ActivityIndicator color={Colors.primary} size="large" style={styles.loader} />;
@@ -125,7 +143,7 @@ export default function CreatorStudioScreen() {
               return <DashboardView stats={stats} recentContent={recentVideos} isLoading={isLoading} currentWatchHours={currentWatchHours} handleContentPress={handleContentPress} />;
           
           case 'Content':
-              return <ContentView posts={allContent.posts} reels={allContent.reels} videos={allContent.videos} handleContentPress={handleContentPress} handleDelete={() => {}} />;
+              return <ContentView posts={allContent.posts} reels={allContent.reels} videos={allContent.videos} handleContentPress={handleContentPress} handleDelete={handleDeleteContent} />;
 
           case 'Earnings':
               return <EarningsView channel={channel} earnings={earnings} isMonetized={isMonetized} availableEarnings={availableEarnings} currentSubs={currentSubs} currentWatchHours={currentWatchHours} canWithdraw={canWithdraw} handleApplyMonetization={handleApplyMonetization} />;
@@ -214,6 +232,7 @@ const styles = StyleSheet.create({
 
   mainContent: { flex: 1 },
   loader: { padding: 20, alignItems: 'center' },
+  placeholder: { padding: 40, alignItems: 'center', flex: 1, justifyContent: 'center' },
   placeholderText: { color: Colors.textSecondary, fontSize: 16 },
 
   bottomTabs: { flexDirection: 'row', borderTopWidth: 1, borderColor: Colors.border, backgroundColor: '#000', paddingTop: 12 },
