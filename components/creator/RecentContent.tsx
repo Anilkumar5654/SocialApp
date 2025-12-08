@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import ContentItem from '../ContentItem';
+// 👇 FIX: Absolute Path का उपयोग करें, क्योंकि यह सभी Resolution Errors को ठीक कर देगा।
+import ContentItem from '@/components/creator/ContentItem';
 import Colors from '@/constants/colors';
 
 interface RecentContentProps {
@@ -20,7 +21,6 @@ export default function RecentContent({ videos, handleContentPress }: RecentCont
                     key={video.id}
                     type="video"
                     item={video}
-                    // 👇 सुनिश्चित करें कि यह prop इसी तरह tag के अंदर है
                     onPress={() => handleContentPress('video', video.id)} 
                     hideStats={true} 
                 />
