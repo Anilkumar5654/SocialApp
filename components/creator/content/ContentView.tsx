@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+// 👇 FIX: ScrollView को react-native से इम्पोर्ट करें
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'; 
 import { ImageIcon, Film, Video } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import ContentItem from '../ContentItem'; // Reusing ContentItem
@@ -26,7 +27,6 @@ const EmptyState = ({ type }: { type: 'post' | 'reel' | 'video' }) => {
 
 export default function ContentView({ posts, reels, videos, handleContentPress, handleDelete }: ContentViewProps) {
 
-    // Content management utility (Placeholder for future actions like editing)
     const handleMenuPress = (item: any) => {
         Alert.alert('Content Actions', `Options for ${item.title || 'this content'}`, [
             { text: 'View Analytics', onPress: () => handleContentPress(item.type, item.id) },
@@ -36,6 +36,7 @@ export default function ContentView({ posts, reels, videos, handleContentPress, 
     };
 
     return (
+        // 👇 FIX: ScrollView is now available for use
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
             {/* 1. Posts Section */}
             <View style={styles.section}>
@@ -75,7 +76,6 @@ export default function ContentView({ posts, reels, videos, handleContentPress, 
     );
 }
 
-// NOTE: Styles are combined from the monolith.
 const styles = StyleSheet.create({
     container: { paddingBottom: 20 },
     section: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
