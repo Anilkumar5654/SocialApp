@@ -28,7 +28,7 @@ export default function SearchScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'users' | 'posts'>('users');
 
-  // Debounce search input
+  // Debounce
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query);
@@ -50,7 +50,17 @@ export default function SearchScreen() {
     enabled: debouncedQuery.length > 0 && activeTab === 'posts',
   });
 
-  // Follow Mutation
+  // 👇 SAFE DATA EXTRACTION LOGIC (Based on your Screenshot)
+  const users = 
+    (usersData as any)?.results?.users || 
+    (usersData as any)?.users || 
+    [];
+
+  const posts = 
+    (postsData as any)?.results?.posts || 
+    (postsData as any)?.posts || 
+    [];
+
   const followMutation = useMutation({
     mutationFn: (userId: string) => api.users.follow(userId),
     onSuccess: () => {
@@ -58,8 +68,6 @@ export default function SearchScreen() {
     },
   });
 
-  const users = usersData?.users || [];
-  const posts = postsData?.posts || [];
   const isLoading = activeTab === 'users' ? isLoadingUsers : isLoadingPosts;
 
   const handleClearSearch = () => {
@@ -72,7 +80,7 @@ export default function SearchScreen() {
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header & Search Input */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft color={Colors.text} size={24} />
@@ -102,17 +110,13 @@ export default function SearchScreen() {
           style={[styles.tab, activeTab === 'users' && styles.tabActive]}
           onPress={() => setActiveTab('users')}
         >
-          <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>
-            People
-          </Text>
+          <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>People</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
           onPress={() => setActiveTab('posts')}
         >
-          <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
-            Posts
-          </Text>
+          <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>Posts</Text>
         </TouchableOpacity>
       </View>
 
@@ -126,7 +130,7 @@ export default function SearchScreen() {
           {activeTab === 'users' && (
             <FlatList
               data={users}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.id.toString()} // Ensure ID is string
               renderItem={({ item }) => (
                 <UserListItem
                   user={item}
@@ -148,7 +152,7 @@ export default function SearchScreen() {
           {activeTab === 'posts' && (
             <FlatList
               data={posts}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.id.toString()} // Ensure ID is string
               renderItem={({ item }) => <PostItem post={item} />}
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={
@@ -167,79 +171,19 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: 12,
-  },
-  backButton: {
-    padding: 4,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    height: 40,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: Colors.text,
-    fontSize: 16,
-    height: '100%',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  tabTextActive: {
-    color: Colors.text,
-  },
-  content: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 12 },
+  backButton: { padding: 4 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 12, height: 40, gap: 8 },
+  searchInput: { flex: 1, color: Colors.text, fontSize: 16, height: '100%' },
+  tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: 15, fontWeight: '600', color: Colors.textMuted },
+  tabTextActive: { color: Colors.text },
+  content: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContent: { paddingBottom: 20 },
+  emptyState: { padding: 32, alignItems: 'center' },
+  emptyText: { color: Colors.textSecondary, fontSize: 16 },
 });
-        
