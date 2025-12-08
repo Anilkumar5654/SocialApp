@@ -1,11 +1,13 @@
+// --- StudioHeader.tsx (Final Code) ---
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Edit } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { getMediaUri } from '@/utils/media'; // ✅ FIX: Corrected import and function name
-import { formatViews } from '@/utils/format'; 
+import { getMediaUri } from '@/utils/media'; // ✅ Import of the correct function
+import { formatViews } from '@/utils/format';
 
 interface StudioHeaderProps {
   channel: any;
@@ -15,7 +17,7 @@ interface StudioHeaderProps {
 export default function StudioHeader({ channel, handleEditChannel }: StudioHeaderProps) {
   if (!channel) return null;
   
-  // ✅ FIX: Using the correct function getMediaUri
+  // ✅ FIX: DIRECTLY USE THE CORRECT IMPORTED FUNCTION NAME (getMediaUri)
   const avatarUrl = getMediaUri(channel.avatar); 
 
   return (
