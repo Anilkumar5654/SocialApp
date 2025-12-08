@@ -1,88 +1,79 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Calendar, TrendingUp } from 'lucide-react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { Calendar, Users, TrendingUp } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { formatViews } from '@/utils/format';
+import StatCard from '../micro/StatCard'; // Reusable component
+
+const { width } = Dimensions.get('window');
 
 interface DashboardStatsProps {
-  stats: any;
+    stats: any;
+    currentWatchHours: number;
 }
 
-export default function DashboardStats({ stats }: DashboardStatsProps) {
-  // Data extraction
-  const views = stats?.total_views || 0;
-  const watchTime = stats?.total_watch_time || 0.0;
-  const followers = stats?.total_subscribers || 0; // Using sub count as followers
-  const engagement = stats?.engagement_rate || 0;
+export default function DashboardStats({ stats, currentWatchHours }: DashboardStatsProps) {
+    // Helper function for view count display (Assumed formatViews is available)
+    const formatViews = (count: number) => count > 999 ? [span_26](start_span)`${(count / 1000).toFixed(1)}K` : count;[span_26](end_span)
 
-  return (
-    <View style={styles.container}>
-      {/* Section Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Performance</Text>
-        <TouchableOpacity style={styles.dateBadge}>
-            <Calendar size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />
-            <Text style={styles.dateText}>Last 28 days</Text>
-        </TouchableOpacity>
-      </View>
+    // Trends are hardcoded as per the original component, but logic is simplified
+    const totalViews = stats?.total_views || 0;
+    const totalFollowers = stats?.total_followers || [span_27](start_span)0;[span_27](end_span)
+    const engagementRate = stats?.engagement_rate || [span_28](start_span)0;[span_28](end_span)
 
-      {/* Grid */}
-      <View style={styles.grid}>
-        
-        {/* Card 1: Views */}
-        <View style={styles.card}>
-            <Text style={styles.cardValue}>{formatViews(views)}</Text>
-            <Text style={styles.cardLabel}>Views</Text>
-        </View>
-
-        {/* Card 2: Watch Time */}
-        <View style={styles.card}>
-            <Text style={styles.cardValue}>{watchTime.toFixed(1)}</Text>
-            <Text style={styles.cardLabel}>Watch time (hours)</Text>
-        </View>
-
-        {/* Card 3: Followers (With Trend) */}
-        <View style={styles.card}>
-            <View style={{flexDirection:'row', alignItems:'center', gap:6, marginBottom:4}}>
-                <Text style={styles.cardValue}>{formatViews(followers)}</Text>
+    return (
+        <View style={styles.section}>
+            {/* Header: Performance / Last 28 days */}
+            <View style={styles.sectionHeader}>
+                [span_29](start_span)<Text style={styles.sectionTitle}>Performance</Text>[span_29](end_span)
+                <View style={styles.timeFilterContainer}>
+                    [span_30](start_span)<Calendar color={Colors.textSecondary} size={16} />[span_30](end_span)
+                    [span_31](start_span)<Text style={styles.timeFilterText}>Last 28 days</Text>[span_31](end_span)
+                </View>
             </View>
-            <Text style={styles.cardLabel}>Followers</Text>
-            <Text style={styles.trend}>+15% this month</Text>
-        </View>
 
-        {/* Card 4: Engagement (With Trend) */}
-        <View style={styles.card}>
-            <View style={{flexDirection:'row', alignItems:'center', gap:6, marginBottom:4}}>
-                <TrendingUp size={18} color="#3b82f6" />
+            {/* Top Row: Views and Watch Time (Specific Layout) */}
+            [span_32](start_span)<View style={styles.overviewAnalyticsGrid}>[span_32](end_span)
+                <View style={styles.analyticsStatCard}>
+                    [span_33](start_span)<Text style={styles.analyticsStatValue}>{formatViews(totalViews)}</Text>[span_33](end_span)
+                    <Text style={styles.analyticsStatTitle}>Views</Text>
+                </View>
+                <View style={styles.analyticsStatCard}>
+                    [span_34](start_span)<Text style={styles.analyticsStatValue}>{currentWatchHours.toFixed(1)}</Text>[span_34](end_span)
+                    <Text style={styles.analyticsStatTitle}>Watch time (hours)</Text>
+                </View>
             </View>
-            <Text style={styles.cardLabel}>Engagement</Text>
-            <Text style={styles.cardValue}>{engagement}%</Text>
-            <Text style={styles.trend}>+8% this month</Text>
-        </View>
 
-      </View>
-    </View>
-  );
+            {/* Bottom Row: StatCards (Reusable) */}
+            [span_35](start_span)<View style={styles.statsGrid}>[span_35](end_span)
+                <StatCard 
+                    icon={<Users color={Colors.primary} size={24} />} 
+                    title="Followers" 
+                    value={totalFollowers.toLocaleString()} 
+                    change={stats?.monthly_growth?.followers > 0 ? `+${stats.monthly_growth.followers}%` : undefined} 
+                    isPositive={stats?.monthly_growth?.followers > 0} 
+                [span_36](start_span)/>[span_36](end_span)
+                <StatCard 
+                    icon={<TrendingUp color={Colors.info} size={24} />} 
+                    title="Engagement" 
+                    value={`${engagementRate.toFixed(1)}%`} 
+                    change={stats?.monthly_growth?.engagement > 0 ? `+${stats.monthly_growth.engagement}%` : undefined}
+                    isPositive={stats?.monthly_growth?.engagement > 0} 
+                [span_37](start_span)/>[span_37](end_span)
+            </View>
+        </View>
+    );
 }
 
+// NOTE: Styles are combined from the original file.
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  dateBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#1A1A1A', borderRadius: 20, borderWidth: 1, borderColor: '#333' },
-  dateText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
-  
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { 
-    width: '48%', 
-    backgroundColor: '#1A1A1A', 
-    padding: 16, 
-    borderRadius: 12, 
-    borderWidth: 1, 
-    borderColor: '#333',
-    justifyContent: 'center'
-  },
-  cardValue: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  cardLabel: { fontSize: 13, color: Colors.textSecondary },
-  trend: { fontSize: 12, color: Colors.success, fontWeight: '600', marginTop: 6 }
+    section: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, borderTopWidth: 1, borderTopColor: Colors.border },
+    sectionTitle: { fontSize: 20, fontWeight: '700' as const, color: Colors.text },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    timeFilterContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+    timeFilterText: { fontSize: 13, fontWeight: '600' as const, color: Colors.textSecondary },
+    overviewAnalyticsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, marginBottom: 16 },
+    analyticsStatCard: { width: (width - 48) / 2, backgroundColor: Colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, minHeight: 80 },
+    analyticsStatValue: { fontSize: 22, fontWeight: '700' as const, color: Colors.text, marginBottom: 4 },
+    analyticsStatTitle: { fontSize: 14, color: Colors.textSecondary },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 16 },
 });
