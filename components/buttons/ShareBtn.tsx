@@ -3,11 +3,12 @@ import { TouchableOpacity, Share, StyleSheet, Text, View } from 'react-native';
 import { Share2 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { api } from '@/services/api';
+import { formatViews } from '@/utils/format'; // 👈 Formatter import kiya
 
 interface ShareBtnProps {
   id: string;
   type: 'post' | 'video' | 'reel' | 'channel';
-  count?: number; // Optional: Agar count dikhana ho
+  count?: number; 
   color?: string;
   size?: number;
   showCount?: boolean;
@@ -23,22 +24,17 @@ export default function ShareBtn({
 }: ShareBtnProps) {
 
   const handleShare = async () => {
-    // 1. Generate Link (Apne Domain ke hisab se change kar lena)
-    // Example: https://socialclub.com/video/123
     const url = `https://socialclub.com/${type}/${id}`;
     const message = `Check this out: ${url}`;
 
     try {
-      // 2. Open Native Share Dialog
       const result = await Share.share({
         message: message,
-        url: url, // iOS specific
-        title: 'Share Content' // Android specific
+        url: url, 
+        title: 'Share Content'
       });
 
-      // 3. Track Share on Backend (Only if successfully shared)
       if (result.action === Share.sharedAction) {
-         // Fire and forget (No need to wait)
          if (type === 'post') api.posts.share(id);
          else if (type === 'video') api.videos.share(id);
          else if (type === 'reel') api.reels.share(id);
@@ -53,7 +49,8 @@ export default function ShareBtn({
       <Share2 color={color} size={size} />
       {showCount && count !== undefined && (
         <Text style={[styles.text, { color }]}>
-          {count > 0 ? count : 'Share'}
+          {/* 👇 Logic Change: Agar 0 hai to '0' dikhayega, 'Share' nahi */}
+          {count > 0 ? formatViews(count) : '0'} 
         </Text>
       )}
     </TouchableOpacity>
@@ -62,13 +59,12 @@ export default function ShareBtn({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'center', // Center align for vertical stacks (Reels)
+    gap: 4, // Icon aur Text ke beech gap kam kiya
   },
   text: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    marginTop: 2
   }
 });
-        
