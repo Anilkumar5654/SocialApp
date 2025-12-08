@@ -48,7 +48,7 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.logo}>SocialHub</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => router.push('/search')} style={styles.iconBtn}>
+          <TouchableOpacity onPress={() => router.push('/feed/search')} style={styles.iconBtn}>
             <Search color={Colors.text} size={24} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.iconBtn}>
