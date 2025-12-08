@@ -40,7 +40,7 @@ export default function CreatorStudioScreen() {
   const [channelDescription, setChannelDescription] = useState('');
   const [isCreatingChannel, setIsCreatingChannel] = useState(false);
 
-  // --- MONETIZATION CONSTANTS (Source: 250, 252) ---
+  // --- MONETIZATION CONSTANTS ---
   const TARGET_SUBS = 1000;
   const TARGET_WATCH_HOURS = 4000;
 
@@ -48,19 +48,25 @@ export default function CreatorStudioScreen() {
   const { data: creatorData, isLoading, refetch, isError } = useQuery({
     queryKey: ['creator-full-data', user?.id],
     queryFn: async () => {
-        // Fetch all necessary data points
-        const [channelRes, statsRes, earningsRes, contentRes] = await Promise.all([
-            api.channels.checkUserChannel(user?.id || '').then(res => res.data || null).catch(() => ({})),
+        // Fetch all necessary data points concurrently
+        const [channelCheckRes, statsRes, earningsRes, contentRes] = await Promise.all([
+            // FIX: Ensure structure is handled gracefully even if channel doesn't exist or API fails
+            api.channels.checkUserChannel(user?.id || '').catch(() => ({ success: false, has_channel: false, data: null })), 
             api.creator.getStats().catch(() => ({ stats: {} })),
             api.creator.getEarnings('month').catch(() => ({ earnings: {} })),
             api.creator.getContent('all', 1).catch(() => ({ content: [] })),
         ]);
         
-        // Group content for the Content Tab view
+        // 2. Explicitly determine the final channel object (THE FIX)
+        const channelObj = (channelCheckRes.success && channelCheckRes.has_channel) 
+                           ? channelCheckRes.data 
+                           : null;
+        
+        // Group content for Content Tab view
         const allContent = contentRes.content || [];
         
         return { 
-            channel: channelRes.channel, 
+            channel: channelObj, 
             stats: statsRes.stats, 
             earnings: earningsRes.earnings, 
             recentVideos: allContent.filter((c: any) => c.type === 'video').slice(0, 3), 
@@ -94,7 +100,10 @@ export default function CreatorStudioScreen() {
   const handleContentPress = (type: 'post' | 'reel' | 'video', id: string) => {
     if (type === 'post') router.push(`/post/${id}`);
     if (type === 'reel') router.push('/reels');
-    if (type === 'video') router.push(`/videos/player?videoId=${id}`);
+    // FIX: Send video to Analytics screen instead of the Player for Creator flow
+    if (type === 'video') {
+        router.push({ pathname: '/videos/[videoId]/analytics', params: { videoId: id } });
+    }
   };
 
   const handleDeleteContent = async (item: any) => {
@@ -171,6 +180,7 @@ export default function CreatorStudioScreen() {
       );
   }
 
+  // Final UI Decision: Show Dashboard or Create Channel Prompt
   if (!channel && !isLoading) {
     return (
         <View style={styles.container}>
