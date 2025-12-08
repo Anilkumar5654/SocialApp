@@ -1,75 +1,16 @@
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { Plus, TrendingUp, Flame, Clock, BarChart2, Search } from 'lucide-react-native';
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  Pressable,
-  Dimensions,
-  StatusBar,
-  ActivityIndicator
-} from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import { Search, Plus, TrendingUp, Flame, Clock, BarChart2 } from 'lucide-react-native';
 
 import Colors from '@/constants/colors';
-import { formatTimeAgo } from '@/constants/timeFormat';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, MEDIA_BASE_URL } from '@/services/api';
+import { api } from '@/services/api';
+import { calculateViralityScore } from '@/utils/analytics';
+import VideoCard from '@/components/videos/VideoCard';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// --- VIRALITY SCORE LOGIC (Based on User's Saved Formula) ---
-
-interface VideoDataWithMetrics {
-    id: string;
-    shares_count: number;
-    comments_count: number;
-    likes_count: number;
-    dislikes_count: number;
-    created_at: string;
-    [key: string]: any; // Other video properties
-}
-
-const E_MAX = 10000;
-const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
-
-const calculateViralityScore = (video: VideoDataWithMetrics): number => {
-    const shares = Number(video.shares_count) || 0;
-    const comments = Number(video.comments_count) || 0;
-    const likes = Number(video.likes_count) || 0;
-    const dislikes = Number(video.dislikes_count) || 0;
-    const createdAt = new Date(video.created_at);
-    
-    // 1. Engagement Score (E_T)
-    const E_T = (10 * shares) + (5 * comments) + (2 * likes) - (3 * dislikes);
-
-    // 2. Age Decay (A_Decay)
-    const now = new Date();
-    const ageDays = (now.getTime() - createdAt.getTime()) / MILLIS_PER_DAY;
-    const t = ageDays; // t = age in days
-    
-    // Decay formula: A_Decay = (1/2)^(t / 7)
-    const A_Decay = Math.pow(0.5, (t / 7));
-
-    // 3. Final Virality Score
-    const rawScore = (E_T * A_Decay) / E_MAX;
-    const finalScore = Math.min(100, rawScore * 100);
-    
-    // Return the score (0 or greater)
-    return Math.max(0, finalScore);
-};
-
-// --- END OF VIRALITY SCORE LOGIC ---
-
-
-// Filter Categories
 const VIDEO_FILTERS = [
   { id: 'all', label: 'All', icon: BarChart2 },
   { id: 'trending', label: 'Trending', icon: TrendingUp },
@@ -77,217 +18,70 @@ const VIDEO_FILTERS = [
   { id: 'recent', label: 'Recent', icon: Clock },
 ];
 
-// Helper: Get Full URL
-const getMediaUri = (uri: string | undefined) => {
-  if (!uri) return '';
-  return uri.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
-};
-
-// Helper: Format Views (e.g. 1.2M, 5K)
-const formatViews = (views: number | undefined | null) => {
-  const safeViews = Number(views) || 0; 
-  if (safeViews >= 1000000) return `${(safeViews / 1000000).toFixed(1)}M`;
-  if (safeViews >= 1000) return `${(safeViews / 1000).toFixed(1)}K`;
-  return safeViews.toString();
-};
-
-// Helper: Format Duration (seconds to MM:SS)
-const formatDuration = (seconds: number) => {
-    if (!seconds || seconds <= 0) return "00:00";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    
-    if (h > 0) {
-        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
-// --- SINGLE VIDEO CARD COMPONENT ---
-const VideoCard = React.memo(({ video }: { video: any }) => {
-  
-  const handlePress = useCallback(() => {
-    router.push({ pathname: '/videos/player', params: { videoId: video.id } });
-  }, [video.id]);
-
-  const handleChannelPress = useCallback(() => {
-    if (video.channel_id) {
-        router.push({ pathname: '/channel/[channelId]', params: { channelId: video.channel_id } });
-    }
-  }, [video.channel_id]);
-
-  // Data Handling (Channel Logic)
-  const channelName = video.channel_name || video.user?.channel_name || 'Unknown Channel';
-  const channelAvatar = getMediaUri(video.channel_avatar || video.user?.avatar || 'assets/c_profile.jpg');
-  const isVerified = !!(video.channel_verified || video.is_verified);
-  const thumbnailUrl = getMediaUri(video.thumbnail_url);
-  const videoDuration = Number(video.duration) || 0;
-
-  return (
-    <TouchableOpacity 
-      style={styles.videoCard} 
-      onPress={handlePress}
-      activeOpacity={0.9}
-    >
-      {/* 1. Thumbnail Section */}
-      <View style={styles.thumbnailContainer}>
-        <Image 
-          source={{ uri: thumbnailUrl }} 
-          style={styles.thumbnail} 
-          contentFit="cover"
-          transition={200}
-        />
-        {/* Duration Badge */}
-        {videoDuration > 0 && (
-          <View style={styles.durationBadge}>
-            <Text style={styles.durationText}>
-                {formatDuration(videoDuration)}
-            </Text>
-          </View>
-        )}
-      </View>
-      
-      {/* 2. Info Section */}
-      <View style={styles.videoInfoRow}>
-        {/* Channel Avatar */}
-        <Pressable onPress={handleChannelPress}>
-           <Image source={{ uri: channelAvatar }} style={styles.avatar} />
-        </Pressable>
-
-        {/* Text Details */}
-        <View style={styles.videoDetailsColumn}>
-            <Text style={styles.videoTitle} numberOfLines={2}>
-              {video.title || video.caption || 'Untitled Video'}
-            </Text>
-            
-            <Text style={styles.metaText} numberOfLines={1}>
-              {channelName}
-              {isVerified ? ' ✓' : ''} 
-              {' · '}
-              {formatViews(video.views_count)} views
-              {' · '}
-              {formatTimeAgo(video.created_at)}
-              {/* Optional: Show Score for debugging */}
-              {/* {video.calculatedScore !== undefined && ` [Score: ${video.calculatedScore.toFixed(1)}]`} */}
-            </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-});
-
-// --- MAIN SCREEN ---
 export default function VideosScreen() {
   const { isAuthenticated } = useAuth();
-  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [filter, setFilter] = useState('all');
   const insets = useSafeAreaInsets();
 
-  // 1. Fetch Videos
-  const { 
-    data: videosData, 
-    isLoading, 
-    refetch,
-    isRefetching,
-  } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['videos-feed'], 
-    queryFn: async () => {
-      const response = await api.videos.getVideos(1, 20); 
-      return response;
-    },
+    queryFn: () => api.videos.getVideos(1, 20),
   });
 
-  const videos = videosData?.videos || [];
+  const videos = data?.videos || [];
 
-  // 2. Sorting Logic (Viral Strategy Implementation)
   const displayVideos = useMemo(() => {
     if (!videos.length) return [];
+    let sorted = videos.map((v: any) => ({ ...v, score: calculateViralityScore(v) }));
     
-    // First, calculate the score for all videos
-    const videosWithScore = videos.map(video => ({
-        ...video,
-        // Use the saved formula to calculate the score
-        calculatedScore: calculateViralityScore(video as VideoDataWithMetrics)
-    }));
-    
-    let sorted = [...videosWithScore];
-
-    if (selectedFilter === 'trending' || selectedFilter === 'hot') {
-       // STRATEGY: Highest Viral Score comes first (Hot and Trending use the same core logic)
-       sorted.sort((a, b) => (b.calculatedScore) - (a.calculatedScore));
-       
-    } else if (selectedFilter === 'recent') {
-       // STRATEGY: Newest Uploads
-       sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (filter === 'trending' || filter === 'hot') {
+       sorted.sort((a: any, b: any) => b.score - a.score);
+    } else if (filter === 'recent') {
+       sorted.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-    
     return sorted;
-  }, [videos, selectedFilter]);
+  }, [videos, filter]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Text style={styles.headerTitle}>Videos</Text>
-        <View style={styles.headerIcons}>
-            {/* FIX: Search button now points to the new path /videos/search */}
-            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/videos/search')}>
-                <Search color="#fff" size={24} />
-            </TouchableOpacity>
+        <Text style={styles.title}>Videos</Text>
+        <View style={styles.icons}>
+            <TouchableOpacity onPress={() => router.push('/videos/search')}><Search color="#fff" size={24} /></TouchableOpacity>
             {isAuthenticated && (
-            <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={() => router.push('/videos/upload')}
-            >
+            <TouchableOpacity style={styles.uploadBtn} onPress={() => router.push('/videos/upload')}>
                 <Plus color="#000" size={22} />
             </TouchableOpacity>
             )}
         </View>
       </View>
 
-      {/* Filters */}
-      <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-          {VIDEO_FILTERS.map((filter) => {
-            const IconComponent = filter.icon;
-            const isActive = selectedFilter === filter.id;
+      <View style={styles.filters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+          {VIDEO_FILTERS.map((f) => {
+            const Icon = f.icon;
+            const isActive = filter === f.id;
             return (
-              <TouchableOpacity
-                key={filter.id}
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                onPress={() => setSelectedFilter(filter.id)}
-              >
-                <IconComponent color={isActive ? '#000' : Colors.textSecondary} size={14} />
-                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>{filter.label}</Text>
+              <TouchableOpacity key={f.id} style={[styles.chip, isActive && styles.chipActive]} onPress={() => setFilter(f.id)}>
+                <Icon color={isActive ? '#000' : Colors.textSecondary} size={14} />
+                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* Video List */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
+        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={displayVideos}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => <VideoCard video={item} />}
-          contentContainerStyle={styles.videosList}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No videos found</Text>
-              <Text style={styles.emptySubtext}>
-                 {selectedFilter === 'hot' ? 'No hot videos yet.' : 'Be the first to upload!'}
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={<Text style={styles.empty}>No videos found</Text>}
         />
       )}
     </View>
@@ -295,160 +89,15 @@ export default function VideosScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-    backgroundColor: Colors.background,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16
-  },
-  iconBtn: {
-    padding: 4
-  },
-  uploadButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary, // Pink Brand Color
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  // Filters
-  filterRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-    backgroundColor: Colors.background,
-  },
-  filterContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#333',
-    marginRight: 8,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  filterTextActive: {
-    color: '#000',
-  },
-  
-  // Video List
-  videosList: {
-    paddingBottom: 100,
-  },
-  videoCard: {
-    marginBottom: 20,
-    backgroundColor: Colors.background,
-  },
-  thumbnailContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.5625, // 16:9 Ratio
-    backgroundColor: '#1A1A1A',
-    position: 'relative',
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  durationBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  durationText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  
-  // Info Section
-  videoInfoRow: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#333',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  videoDetailsColumn: {
-    flex: 1,
-    gap: 4,
-  },
-  videoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  metaText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 16,
-  },
-  
-  // Empty State
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    marginTop: 50,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: '#222' },
+  title: { fontSize: 24, fontWeight: '700', color: Colors.text },
+  icons: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  uploadBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  filters: { paddingVertical: 12, borderBottomWidth: 1, borderColor: '#222' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#333' },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  chipTextActive: { color: '#000' },
+  empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 50 }
 });
