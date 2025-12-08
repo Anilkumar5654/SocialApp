@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Colors from '@/constants/colors';
 
-// 👇 Reusing the existing component (No code duplication)
+// 👇 Reusing the existing VideoCard (Clean Structure)
 import VideoCard from '@/components/videos/VideoCard';
 
 interface RecommendedVideosProps {
@@ -19,7 +19,7 @@ export default function RecommendedVideos({ videos }: RecommendedVideosProps) {
             
             <View style={styles.list}>
                 {videos.map((item) => (
-                    // 👇 VideoCard handles Image, Time Format, Clicks & Navigation internally
+                    // 👇 Using VideoCard handles Image, Time, Clicks & Navigation automatically
                     <VideoCard 
                         key={item.id} 
                         video={item} 
@@ -33,7 +33,7 @@ export default function RecommendedVideos({ videos }: RecommendedVideosProps) {
 const styles = StyleSheet.create({
     container: {
         marginTop: 10,
-        paddingBottom: 40, // Space at bottom
+        paddingBottom: 40, 
     },
     headerTitle: {
         color: Colors.text,
@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     list: {
-        // VideoCard already has marginBottom and background color
+        // VideoCard internally manages its own spacing
     }
 });
