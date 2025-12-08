@@ -1,25 +1,40 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { ThumbsUp, ThumbsDown, Share2, MessageCircle, MoreVertical, Download } from 'lucide-react-native';
+import { ThumbsUp, ThumbsDown, MessageCircle, MoreVertical } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { formatViews } from '@/utils/format';
 
+// 👇 Reusable Smart Buttons
+import ShareBtn from '@/components/buttons/ShareBtn';
+import SaveBtn from '@/components/buttons/SaveBtn';
+
 interface VideoActionsProps {
+    videoId: string;      // New: Needed for buttons
     likesCount: number;
     isLiked: boolean;
     isDisliked: boolean;
+    isSaved: boolean;     // New: Needed for SaveBtn
     handleLike: () => void;
     handleDislike: () => void;
-    handleShare: () => void;
     setShowComments: (show: boolean) => void;
     setShowMenu: (show: boolean) => void;
 }
 
 export default function VideoActions({
-    likesCount, isLiked, isDisliked, handleLike, handleDislike, handleShare, setShowComments, setShowMenu
+    videoId,
+    likesCount,
+    isLiked,
+    isDisliked,
+    isSaved,
+    handleLike,
+    handleDislike,
+    setShowComments,
+    setShowMenu
 }: VideoActionsProps) {
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.container}>
+            
+            {/* 1. Like/Dislike Pill */}
             <View style={styles.pill}>
                 <TouchableOpacity style={styles.btn} onPress={handleLike}>
                     <ThumbsUp size={20} color={isLiked ? Colors.primary : Colors.text} fill={isLiked ? Colors.primary : "transparent"} />
@@ -31,15 +46,33 @@ export default function VideoActions({
                 </TouchableOpacity>
             </View>
 
+            {/* 2. Comments Button */}
             <TouchableOpacity style={styles.circle} onPress={() => setShowComments(true)}>
                 <MessageCircle size={20} color={Colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.circle} onPress={handleShare}>
-                <Share2 size={20} color={Colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.circle} onPress={() => {}}>
-                <Download size={20} color={Colors.text} />
-            </TouchableOpacity>
+
+            {/* 3. Save Button (Replaces Download) */}
+            <View style={styles.circle}>
+                <SaveBtn 
+                    id={videoId} 
+                    type="video" 
+                    isSaved={isSaved} 
+                    size={22} 
+                    color={Colors.text} 
+                />
+            </View>
+
+            {/* 4. Share Button */}
+            <View style={styles.circle}>
+                <ShareBtn 
+                    id={videoId} 
+                    type="video" 
+                    size={22} 
+                    color={Colors.text} 
+                />
+            </View>
+
+            {/* 5. Menu Button */}
             <TouchableOpacity style={styles.circle} onPress={() => setShowMenu(true)}>
                 <MoreVertical size={20} color={Colors.text} />
             </TouchableOpacity>
@@ -55,4 +88,3 @@ const styles = StyleSheet.create({
     text: { color: '#fff', fontSize: 14, fontWeight: '600' },
     circle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#222', justifyContent: 'center', alignItems: 'center' },
 });
-                  
