@@ -14,6 +14,7 @@ import { getMediaUri } from '@/utils/media';
 import { formatViews } from '@/utils/format';
 import { formatTimeAgo } from '@/constants/timeFormat';
 
+// Clean Component Imports
 import VideoController from '@/components/videos/VideoController';
 import VideoActions from '@/components/videos/VideoActions';
 import RecommendedVideos from '@/components/videos/RecommendedVideos';
@@ -28,7 +29,7 @@ export default function VideoPlayerScreen() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
-    // States
+    // --- STATES ---
     const [isPlaying, setIsPlaying] = useState(true);
     const [showControls, setShowControls] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -52,27 +53,27 @@ export default function VideoPlayerScreen() {
     const lastTapTime = useRef(0);
     const controlsTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    // Data
+    // --- DATA FETCHING ---
     const { data: vData, isLoading } = useQuery({ queryKey: ['video-detail', videoId], queryFn: () => api.videos.getDetails(videoId!), enabled: !!videoId });
     const { data: rData } = useQuery({ queryKey: ['video-rec', videoId], queryFn: () => api.videos.getRecommended(videoId!), enabled: !!videoId });
     const { data: cData, refetch: refetchComments } = useQuery({ queryKey: ['video-comments', videoId], queryFn: () => api.videos.getComments(videoId!, 1), enabled: !!videoId });
 
     const video = vData?.video;
-    const recommended = rData?.videos || [];
+    const recommended = rData?.videos || []; // Ensure this array exists
     const comments = cData?.comments || [];
 
     useEffect(() => {
         if (video) setIsSubscribed(video.channel?.is_subscribed || false);
     }, [video]);
 
-    // Mutations
+    // --- MUTATIONS ---
     const likeMutation = useMutation({ mutationFn: () => video?.is_liked ? api.videos.unlike(videoId!) : api.videos.like(videoId!), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['video-detail', videoId] }) });
     const dislikeMutation = useMutation({ mutationFn: () => video?.is_disliked ? api.videos.undislike(videoId!) : api.videos.dislike(videoId!), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['video-detail', videoId] }) });
     const subMutation = useMutation({ mutationFn: () => api.channels[isSubscribed ? 'unsubscribe' : 'subscribe'](video?.channel?.id!), onSuccess: () => setIsSubscribed(!isSubscribed) });
     const commentMutation = useMutation({ mutationFn: () => api.videos.comment(videoId!, commentText), onSuccess: () => { setCommentText(''); refetchComments(); Alert.alert('Posted'); } });
     const deleteMutation = useMutation({ mutationFn: () => api.videos.delete(videoId!), onSuccess: () => router.back() });
 
-    // Handlers
+    // --- HANDLERS ---
     const togglePlay = async () => {
         if (!videoRef.current) return;
         if (isPlaying) { await videoRef.current.pauseAsync(); setShowControls(true); } 
@@ -192,7 +193,8 @@ export default function VideoPlayerScreen() {
                         )}
                     </TouchableOpacity>
 
-                    <RecommendedVideos recommended={recommended} />
+                    {/* 👇 Corrected Prop Passing: 'videos' expects 'recommended' data */}
+                    <RecommendedVideos videos={recommended} />
                 </ScrollView>
             )}
 
