@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -9,9 +9,9 @@ import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 
-// 👇 Components ab alag files se import ho rahe hain (Clean Structure)
+// Components Imports
 import PostItem from '@/components/feed/PostItem';
-import StoryBar from '@/components/feed/StoryBar'; // Ensure StoryBar is moved to components/feed/
+import StoryBar from '@/components/feed/StoryBar';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -22,12 +22,12 @@ export default function HomeScreen() {
 
   // React Query for Data Fetching
   const { data, refetch, isRefetching, isLoading } = useQuery({
-    queryKey: ['feed', activeTab], // Unique key per tab
+    queryKey: ['feed', activeTab],
     queryFn: () => api.home.getFeed(1, 10, activeTab),
     enabled: isAuthenticated,
   });
 
-  // Filter posts (Only Text/Photo in Feed as per your logic)
+  // Filter: Feed only shows Text & Photo posts (Videos go to Video Tab, Reels to Reels Tab)
   const posts = (data?.posts || []).filter((item: any) => item.type === 'text' || item.type === 'photo');
 
   // Login Check
@@ -85,8 +85,8 @@ export default function HomeScreen() {
         <FlatList
           data={posts}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <PostItem post={item} />} // Sara Logic PostItem me chala gaya
-          ListHeaderComponent={StoryBar}
+          renderItem={({ item }) => <PostItem post={item} />}
+          ListHeaderComponent={<StoryBar />}
           contentContainerStyle={{ paddingBottom: 20 }}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
