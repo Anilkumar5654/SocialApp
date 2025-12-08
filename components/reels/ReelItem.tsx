@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Animated, AppState } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,11 +7,12 @@ import { Heart, Music2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
+import { useIsFocused } from '@react-navigation/native'; // 👈 New Import
 
 import { getMediaUri } from '@/utils/media';
 import { api } from '@/services/api';
 
-// 👇 Clean Components
+// Clean Components
 import ReelActions from './ReelActions';
 import SubscribeBtn from '@/components/buttons/SubscribeBtn';
 
@@ -30,11 +31,23 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
     const videoRef = useRef<Video>(null);
     const insets = useSafeAreaInsets();
     const heartScale = useRef(new Animated.Value(0)).current;
+    
+    // 👇 Focus & App State Logic
+    const isFocused = useIsFocused(); // Check if screen is visible
+    const [appActive, setAppActive] = useState(AppState.currentState === 'active');
     const [userPaused, setUserPaused] = useState(false);
     
     // Like State
     const [isLiked, setIsLiked] = useState(item.is_liked);
     const [likesCount, setLikesCount] = useState(item.likes_count);
+
+    // App Background Listener
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            setAppActive(nextAppState === 'active');
+        });
+        return () => subscription.remove();
+    }, []);
 
     const likeMutation = useMutation({
         mutationFn: () => isLiked ? api.reels.unlike(item.id) : api.reels.like(item.id),
@@ -48,18 +61,24 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
         }
     });
 
+    // 👇 Main Playback Logic
     useEffect(() => {
         if (!videoRef.current) return;
-        if (isActive && !userPaused) {
+
+        // Play ONLY if: Active in List AND Screen Focused AND App is Active AND Not Manually Paused
+        const shouldPlay = isActive && isFocused && appActive && !userPaused;
+
+        if (shouldPlay) {
             videoRef.current.playAsync();
         } else {
             videoRef.current.pauseAsync();
+            // Reset if scrolled away (not just switched tab)
             if (!isActive) {
                 videoRef.current.setPositionAsync(0);
                 setUserPaused(false);
             }
         }
-    }, [isActive, userPaused]);
+    }, [isActive, isFocused, appActive, userPaused]);
 
     const handleDoubleTap = useCallback(() => {
         if (!isLiked) likeMutation.mutate();
@@ -93,10 +112,11 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                         resizeMode={ResizeMode.COVER}
                         isLooping
                         posterSource={{ uri: getMediaUri(item.thumbnail_url) }}
-                        shouldPlay={isActive && !userPaused}
+                        // shouldPlay prop is now controlled by useEffect logic mostly, 
+                        // but keeping this for initial render safety
+                        shouldPlay={isActive && isFocused && appActive && !userPaused}
                     />
                     
-                    {/* Big Heart Animation (Center) */}
                     <View style={styles.centerHeart}>
                         <Animated.View style={{ transform: [{ scale: heartScale }] }}>
                             <Heart size={100} color="#E1306C" fill="#E1306C" style={{ opacity: 0.9 }} />
@@ -105,7 +125,6 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
 
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gradient} />
 
-                    {/* 👇 Cleaned Up Actions (Right Side) */}
                     <View style={{ bottom: insets.bottom + 40, position: 'absolute', right: 0 }}>
                         <ReelActions 
                             item={item}
@@ -117,7 +136,6 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                         />
                     </View>
 
-                    {/* Bottom Info Section */}
                     <View style={[styles.info, { bottom: insets.bottom + 10 }]}>
                         <View style={styles.userRow}>
                             <TouchableOpacity 
