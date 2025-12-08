@@ -1,3 +1,4 @@
+// Views ko 1.2M, 5K me badalne ke liye
 export const formatViews = (views: number | undefined | null) => {
   const safeViews = Number(views) || 0;
   if (safeViews >= 1000000) return `${(safeViews / 1000000).toFixed(1)}M`;
@@ -5,6 +6,7 @@ export const formatViews = (views: number | undefined | null) => {
   return safeViews.toString();
 };
 
+// Seconds ko 05:30 me badalne ke liye
 export const formatDuration = (seconds: number | undefined | null) => {
     const sec = Number(seconds) || 0;
     if (sec <= 0) return "00:00";
