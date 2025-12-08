@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { ChevronRight, MonitorPlay, Eye, Heart } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { getImageUrl } from '@/utils/media'; // Assumed
-import { formatTimeAgo } from '@/constants/timeFormat'; // Assumed
+import { getMediaUri } from '@/utils/media';
+import { formatTimeAgo } from '@/constants/timeFormat';
+import { formatViews } from '@/utils/format';
 
 interface ContentItemProps {
     type: 'post' | 'reel' | 'video';
@@ -14,8 +15,7 @@ interface ContentItemProps {
 }
 
 export default function ContentItem({ type, item, onPress, hideStats }: ContentItemProps) {
-    // FIX: Ensure all variable declarations end cleanly with a semicolon
-    const thumbnailUri = getImageUrl(item.thumbnail_url || item.thumbnailUrl || item.images?.[0]);
+    const thumbnailUri = getMediaUri(item.thumbnail_url || item.thumbnailUrl || item.images?.[0]);
     const title = type === 'video' ? (item.title || item.caption || item.content) : (item.content || item.caption || 'Untitled');
     const views = item.views || 0;
     const likes = item.likes || 0;
@@ -65,7 +65,6 @@ export default function ContentItem({ type, item, onPress, hideStats }: ContentI
     );
 }
 
-// NOTE: Styles are extracted from the monolith.
 const styles = StyleSheet.create({
     contentItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
     contentThumbnailContainer: { position: 'relative', width: 100, aspectRatio: 16 / 9 },
