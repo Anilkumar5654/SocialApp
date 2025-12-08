@@ -1,84 +1,36 @@
 import { Image } from 'expo-image';
 import { Stack, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import {
-  X,
-  Upload,
-  Video,
-  Image as ImageIcon,
-  FileText,
-  Tag,
-  Eye,
-  Lock,
-  Users,
-  Sparkles,
-  DollarSign,
-  MonitorPlay,
-} from 'lucide-react-native';
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  Switch,
-  Keyboard,
-} from 'react-native';
+import { X, Upload, Video, Image as ImageIcon, FileText, Tag, Eye, Lock, Users, Sparkles, DollarSign } from 'lucide-react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform, Switch, Keyboard } from 'react-native';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
+import { formatDuration } from '@/utils/format'; // 👈 Centralized Import
 
-// --- FIXED HOOK: FETCH CHANNEL MONETIZATION STATUS ---
 const useMonetizationStatus = () => {
     return useQuery({
         queryKey: ['channelDetailsMonetization'],
         queryFn: async () => {
             try {
-                // Backend ko '0' bhej rahe hain taaki wo logged-in user ka channel dhund le
                 const response = await api.channels.getChannel('0'); 
-                
-                // Debugging Log: Console me check karna data kaisa aa raha hai
-                console.log('[VideoUpload] API Data:', JSON.stringify(response?.channel, null, 2));
-
                 if (response.channel) {
                      const rawStatus = response.channel.monetization_status || 'PENDING';
                      const rawEnabled = response.channel.is_monetization_enabled;
-
-                     // 🔥 ROBUST CONVERSION: PHP se "1", 1, true, "true" kuch bhi aaye, handle karega
-                     const isEnabled = (
-                        rawEnabled === true || 
-                        rawEnabled === 1 || 
-                        rawEnabled === '1' || 
-                        rawEnabled === 'true'
-                     );
-
-                     return {
-                        status: rawStatus.toString().toUpperCase(), // Hamesha Uppercase (e.g. APPROVED)
-                        is_enabled: isEnabled
-                     };
+                     const isEnabled = (rawEnabled === true || rawEnabled === 1 || rawEnabled === '1' || rawEnabled === 'true');
+                     return { status: rawStatus.toString().toUpperCase(), is_enabled: isEnabled };
                 }
-            } catch (error) {
-                console.log('[VideoUpload] Error fetching channel:', error);
-            }
+            } catch (error) { console.log(error); }
             return { status: 'PENDING', is_enabled: false };
         },
         staleTime: 1000 * 60 * 5, 
     });
 };
 
-
-const VIDEO_CATEGORIES = [
-  'Gaming', 'Entertainment', 'Music', 'Sports', 'News', 'Education', 'Technology', 
-  'Comedy', 'Vlog', 'Tutorial', 'Review', 'How-to',
-];
-
+const VIDEO_CATEGORIES = ['Gaming', 'Entertainment', 'Music', 'Sports', 'News', 'Education', 'Technology', 'Comedy', 'Vlog', 'Tutorial', 'Review', 'How-to'];
 const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Public', icon: Eye, description: 'Everyone can see this video' },
   { value: 'unlisted', label: 'Unlisted', icon: Lock, description: 'Only people with the link' },
@@ -88,7 +40,6 @@ const VISIBILITY_OPTIONS = [
 export default function VideoUploadScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [videoFile, setVideoFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -103,24 +54,13 @@ export default function VideoUploadScreen() {
   const [monetize, setMonetize] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
 
-  // Fetch monetization status
   const { data: monetizationStatus, isLoading: isLoadingMonetization } = useMonetizationStatus();
 
-  // 🔥 STRICT LOGIC: Dono shartein poori honi chahiye
   const isMonetizationEligible = useMemo(() => {
     if (!monetizationStatus) return false;
-    
-    // Console log to debug logic
-    console.log('[VideoUpload] Eligibility Check:', monetizationStatus);
-
-    // Rule: Status 'APPROVED' hona chahiye AUR Master Switch ON hona chahiye
-    const isApproved = monetizationStatus.status === 'APPROVED';
-    const isSwitchOn = monetizationStatus.is_enabled === true;
-
-    return isApproved && isSwitchOn;
+    return monetizationStatus.status === 'APPROVED' && monetizationStatus.is_enabled === true;
   }, [monetizationStatus]);
 
-  // --- TAGS LOGIC ---
   const handleTagInput = (text: string) => {
     setTagInput(text);
     if (text.endsWith(',') || text.endsWith('\n')) {
@@ -147,28 +87,18 @@ export default function VideoUploadScreen() {
       if (videoDuration === null) throw new Error('Video duration could not be determined.');
       
       const finalTags = tagInput.trim() ? [...tags, tagInput.trim()] : tags; 
-      
       const formData = new FormData();
       const videoUri = videoFile.uri;
       const videoFileName = videoUri.split('/').pop() || 'video.mp4';
       const videoFileType = videoFileName.split('.').pop() || 'mp4';
 
-      formData.append('video', {
-        uri: videoUri,
-        name: videoFileName,
-        type: `video/${videoFileType}`,
-      } as any);
+      formData.append('video', { uri: videoUri, name: videoFileName, type: `video/${videoFileType}` } as any);
 
       if (thumbnailFile) {
         const thumbUri = thumbnailFile.uri;
         const thumbFileName = thumbUri.split('/').pop() || 'thumbnail.jpg';
         const thumbFileType = thumbFileName.split('.').pop() || 'jpg';
-        
-        formData.append('thumbnail', {
-          uri: thumbUri,
-          name: thumbFileName,
-          type: `image/${thumbFileType}`,
-        } as any);
+        formData.append('thumbnail', { uri: thumbUri, name: thumbFileName, type: `image/${thumbFileType}` } as any);
       }
 
       formData.append('video_duration', videoDuration.toString());
@@ -179,68 +109,43 @@ export default function VideoUploadScreen() {
       formData.append('allow_comments', allowComments ? '1' : '0');
       formData.append('tags', finalTags.join(',')); 
       
-      // ✅ LOGIC: Backend ko sirf tab ON bhejo jab user eligible ho
       if (isMonetizationEligible) {
           formData.append('monetization_enabled', monetize ? '1' : '0');
       } else {
-          formData.append('monetization_enabled', '0'); 
+          formData.append('monetization_enabled', '0');
       }
       
-      if (scheduledDate) {
-        formData.append('scheduled_at', scheduledDate);
-      }
+      if (scheduledDate) formData.append('scheduled_at', scheduledDate);
 
       return api.videos.upload(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['videos'] });
       queryClient.invalidateQueries({ queryKey: ['creator'] });
-      Alert.alert('Success', 'Your video has been uploaded successfully!', [
-          { text: 'OK', onPress: () => router.back() }
-      ]);
+      Alert.alert('Success', 'Video uploaded!', [{ text: 'OK', onPress: () => router.back() }]);
     },
-    onError: (error: any) => {
-      Alert.alert('Upload Failed', error.message || 'Failed to upload video.');
-    },
+    onError: (error: any) => Alert.alert('Upload Failed', error.message),
   });
 
   const pickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission Denied', 'We need permission to access your media library.'); return; }
+    if (status !== 'granted') return Alert.alert('Permission Denied');
     setVideoDuration(null); 
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, allowsEditing: true, quality: 1, });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, allowsEditing: true, quality: 1 });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      if (asset.duration) {
-          setVideoDuration(Math.floor(asset.duration / 1000)); 
-      } else {
-          Alert.alert("Error", "Could not read video duration.");
-          setVideoFile(null); return;
-      }
+      if (asset.duration) setVideoDuration(Math.floor(asset.duration / 1000));
+      else { Alert.alert("Error", "Could not read duration."); setVideoFile(null); return; }
       setVideoFile(asset);
     }
   };
 
   const pickThumbnail = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission Denied', 'We need permission to access your media library.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 1, });
-    if (!result.canceled && result.assets[0]) {
-      setThumbnailFile(result.assets[0]);
-    }
+    if (status !== 'granted') return Alert.alert('Permission Denied');
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 1 });
+    if (!result.canceled && result.assets[0]) setThumbnailFile(result.assets[0]);
   };
-
-  const handleUpload = () => {
-    uploadMutation.mutate();
-  };
-  
-  const formatDuration = (seconds: number | null) => {
-      if (seconds === null) return 'N/A';
-      const minutes = Math.floor(seconds / 60);
-      const remainingSeconds = seconds % 60;
-      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
 
   return (
     <View style={styles.container}>
@@ -250,50 +155,32 @@ export default function VideoUploadScreen() {
           headerStyle: { backgroundColor: Colors.background },
           headerTintColor: Colors.text,
           headerShadowVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-              <X color={Colors.text} size={24} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => (<TouchableOpacity onPress={() => router.back()} style={styles.closeButton}><X color={Colors.text} size={24} /></TouchableOpacity>),
           headerRight: () => (
             <TouchableOpacity
-              style={[
-                styles.uploadButton,
-                uploadMutation.isPending || isLoadingMonetization || videoDuration === null && videoFile !== null ? styles.uploadButtonDisabled : null,
-              ]}
-              onPress={handleUpload}
+              style={[styles.uploadButton, uploadMutation.isPending || isLoadingMonetization || videoDuration === null && videoFile !== null ? styles.uploadButtonDisabled : null]}
+              onPress={() => uploadMutation.mutate()}
               disabled={uploadMutation.isPending || isLoadingMonetization || videoDuration === null && videoFile !== null}
             >
-              {uploadMutation.isPending || isLoadingMonetization ? (
-                <ActivityIndicator color={Colors.text} size="small" />
-              ) : (
-                <Text style={styles.uploadButtonText}>Upload</Text>
-              )}
+              {uploadMutation.isPending || isLoadingMonetization ? <ActivityIndicator color={Colors.text} size="small" /> : <Text style={styles.uploadButtonText}>Upload</Text>}
             </TouchableOpacity>
           ),
         }}
       />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Video Details Section */}
+        {/* Video Preview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Video Details</Text>
-          
           <View style={styles.uploadArea}>
             {videoFile ? (
               <View style={styles.videoPreview}>
                 <View style={styles.videoPreviewInfo}>
                   <Video color={Colors.primary} size={32} />
-                  <Text style={styles.videoFileName} numberOfLines={1}>
-                    {videoFile.uri.split('/').pop()}
-                  </Text>
-                  <Text style={styles.videoDuration}>
-                    Duration: {videoDuration === null ? 'Calculating...' : formatDuration(videoDuration)}
-                  </Text>
+                  <Text style={styles.videoFileName} numberOfLines={1}>{videoFile.uri.split('/').pop()}</Text>
+                  <Text style={styles.videoDuration}>Duration: {videoDuration === null ? 'Calculating...' : formatDuration(videoDuration)}</Text>
                 </View>
-                <TouchableOpacity style={styles.changeVideoButton} onPress={pickVideo}>
-                  <Text style={styles.changeVideoButtonText}>Change Video</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={styles.changeVideoButton} onPress={pickVideo}><Text style={styles.changeVideoButtonText}>Change Video</Text></TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.uploadBox} onPress={pickVideo}>
@@ -305,112 +192,70 @@ export default function VideoUploadScreen() {
           </View>
         </View>
 
+        {/* Inputs */}
         <View style={styles.section}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}><FileText color={Colors.text} size={16} /> Title *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter a compelling video title"
-              placeholderTextColor={Colors.textMuted}
-              value={title}
-              onChangeText={setTitle}
-              maxLength={100}
-            />
+            <TextInput style={styles.input} placeholder="Title" placeholderTextColor={Colors.textMuted} value={title} onChangeText={setTitle} maxLength={100} />
             <Text style={styles.charCount}>{title.length}/100</Text>
           </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}><FileText color={Colors.text} size={16} /> Description *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Tell viewers about your video"
-              placeholderTextColor={Colors.textMuted}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={6}
-              maxLength={5000}
-            />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Description" placeholderTextColor={Colors.textMuted} value={description} onChangeText={setDescription} multiline numberOfLines={6} maxLength={5000} />
             <Text style={styles.charCount}>{description.length}/5000</Text>
           </View>
         </View>
 
-        {/* Thumbnail Section */}
+        {/* Thumbnail */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thumbnail</Text>
-          <Text style={styles.sectionDescription}>A good thumbnail helps your video stand out</Text>
-
           {thumbnailFile ? (
             <View style={styles.thumbnailPreview}>
               <Image source={{ uri: thumbnailFile.uri }} style={styles.thumbnailImage} contentFit="cover" />
-              <TouchableOpacity style={styles.changeThumbnailButton} onPress={pickThumbnail}>
-                <Text style={styles.changeThumbnailButtonText}>Change Thumbnail</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={styles.changeThumbnailButton} onPress={pickThumbnail}><Text style={styles.changeThumbnailButtonText}>Change Thumbnail</Text></TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={styles.thumbnailUploadBox} onPress={pickThumbnail}>
               <ImageIcon color={Colors.textSecondary} size={40} />
               <Text style={styles.thumbnailUploadText}>Upload Thumbnail</Text>
-              <Text style={styles.thumbnailUploadHint}>1280x720 recommended</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* SEO Section */}
+        {/* Category & Tags */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>SEO & Discovery</Text>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}><Tag color={Colors.text} size={16} /> Category *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
               {VIDEO_CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
-                  onPress={() => setCategory(cat)}
-                >
+                <TouchableOpacity key={cat} style={[styles.categoryChip, category === cat && styles.categoryChipActive]} onPress={() => setCategory(cat)}>
                   <Text style={[styles.categoryChipText, category === cat && styles.categoryChipTextActive]}>{cat}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}><Tag color={Colors.text} size={16} /> Tags</Text>
             <View style={styles.tagsContainer}>
                 {tags.map((tag, index) => (
                     <View key={index} style={styles.tagChip}>
                         <Text style={styles.tagChipText}>{tag}</Text>
-                        <TouchableOpacity onPress={() => removeTag(tag)} style={styles.tagChipRemove}>
-                            <X color={Colors.text} size={12} />
-                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => removeTag(tag)} style={styles.tagChipRemove}><X color={Colors.text} size={12} /></TouchableOpacity>
                     </View>
                 ))}
-                <TextInput
-                    style={[styles.tagInput, { minWidth: tags.length === 0 ? '100%' : 100 }]}
-                    placeholder="Add tags..."
-                    placeholderTextColor={Colors.textMuted}
-                    value={tagInput}
-                    onChangeText={handleTagInput}
-                    onSubmitEditing={() => { if (tagInput.trim()) { handleTagInput(tagInput.trim() + ','); Keyboard.dismiss(); }}}
-                    returnKeyType={Platform.OS === 'ios' ? 'done' : 'next'}
-                />
+                <TextInput style={[styles.tagInput, { minWidth: tags.length === 0 ? '100%' : 100 }]} placeholder="Add tags..." placeholderTextColor={Colors.textMuted} value={tagInput} onChangeText={handleTagInput} onSubmitEditing={() => { if (tagInput.trim()) { handleTagInput(tagInput.trim() + ','); Keyboard.dismiss(); }}} returnKeyType={Platform.OS === 'ios' ? 'done' : 'next'} />
             </View>
-            <Text style={styles.hint}><Sparkles color={Colors.info} size={14} /> Press comma (,) or Enter to create a tag</Text>
           </View>
         </View>
 
-        {/* Visibility Section */}
+        {/* Visibility */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Visibility</Text>
           {VISIBILITY_OPTIONS.map((option) => {
             const IconComponent = option.icon;
             return (
-              <TouchableOpacity
-                key={option.value}
-                style={[styles.visibilityOption, visibility === option.value && styles.visibilityOptionActive]}
-                onPress={() => setVisibility(option.value)}
-              >
+              <TouchableOpacity key={option.value} style={[styles.visibilityOption, visibility === option.value && styles.visibilityOptionActive]} onPress={() => setVisibility(option.value)}>
                 <View style={styles.visibilityLeft}>
                   <IconComponent color={visibility === option.value ? Colors.primary : Colors.textSecondary} size={20} />
                   <View style={styles.visibilityInfo}>
@@ -424,45 +269,20 @@ export default function VideoUploadScreen() {
           })}
         </View>
 
-        {/* Advanced Settings */}
+        {/* Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Advanced Settings</Text>
-
           <View style={styles.settingRow}>
-            <View style={styles.settingLeft}>
-              <Text style={styles.settingLabel}>Allow Comments</Text>
-              <Text style={styles.settingDescription}>Let viewers comment on your video</Text>
-            </View>
-            <Switch
-              value={allowComments}
-              onValueChange={setAllowComments}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.text}
-            />
+            <View style={styles.settingLeft}><Text style={styles.settingLabel}>Allow Comments</Text></View>
+            <Switch value={allowComments} onValueChange={setAllowComments} trackColor={{ false: Colors.border, true: Colors.primary }} thumbColor={Colors.text} />
           </View>
-
-          {/* Monetization Switch - Show ONLY if Eligible */}
-          {isLoadingMonetization ? (
-            <View style={styles.loadingMonetization}>
-                <ActivityIndicator color={Colors.textSecondary} size="small" />
-                <Text style={styles.settingDescription}>Checking eligibility...</Text>
-            </View>
-          ) : isMonetizationEligible && (
+          {isLoadingMonetization ? <ActivityIndicator size="small" /> : isMonetizationEligible && (
             <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Text style={styles.settingLabel}><DollarSign color={Colors.success} size={16} /> Monetization</Text>
-                <Text style={styles.settingDescription}>Enable ads on this video</Text>
-              </View>
-              <Switch
-                value={monetize}
-                onValueChange={setMonetize}
-                trackColor={{ false: Colors.border, true: Colors.success }}
-                thumbColor={Colors.text}
-              />
+               <View style={styles.settingLeft}><Text style={styles.settingLabel}><DollarSign color={Colors.success} size={16} /> Monetization</Text></View>
+               <Switch value={monetize} onValueChange={setMonetize} trackColor={{ false: Colors.border, true: Colors.success }} thumbColor={Colors.text} />
             </View>
           )}
         </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
@@ -500,10 +320,8 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: Colors.text },
   textArea: { minHeight: 120, textAlignVertical: 'top', paddingTop: 12 },
   charCount: { fontSize: 12, color: Colors.textMuted, textAlign: 'right', marginTop: 4 },
-  hint: { fontSize: 12, color: Colors.textSecondary, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
   thumbnailUploadBox: { borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingVertical: 32, alignItems: 'center', gap: 8, backgroundColor: Colors.surface },
   thumbnailUploadText: { fontSize: 15, fontWeight: '600', color: Colors.text },
-  thumbnailUploadHint: { fontSize: 12, color: Colors.textSecondary },
   thumbnailPreview: { gap: 12 },
   thumbnailImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: 12, backgroundColor: Colors.surface },
   changeThumbnailButton: { paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
@@ -525,7 +343,6 @@ const styles = StyleSheet.create({
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   settingLeft: { flex: 1, marginRight: 16 },
   settingLabel: { fontSize: 15, fontWeight: '600', color: Colors.text, marginBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  settingDescription: { fontSize: 13, color: Colors.textSecondary },
   bottomSpacer: { height: 40 },
   loadingMonetization: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
 });
