@@ -14,51 +14,51 @@ interface ContentItemProps {
 }
 
 export default function ContentItem({ type, item, onPress, hideStats }: ContentItemProps) {
-    [span_7](start_span)const thumbnailUri = getImageUrl(item.thumbnail_url || item.thumbnailUrl || item.images?.[0]);[span_7](end_span)
-    const title = type === 'video' ? (item.title || item.caption || item.content) [span_8](start_span): (item.content || item.caption || 'Untitled');[span_8](end_span)
-    const views = item.views || [span_9](start_span)0;[span_9](end_span)
-    const likes = item.likes || [span_10](start_span)0;[span_10](end_span)
-    [span_11](start_span)const timestamp = item.timestamp || item.created_at || item.uploadDate || item.upload_date;[span_11](end_span)
-    [span_12](start_span)const viralScore = item.viral_score;[span_12](end_span)
+    // FIX: Ensure all variable declarations end cleanly with a semicolon
+    const thumbnailUri = getImageUrl(item.thumbnail_url || item.thumbnailUrl || item.images?.[0]);
+    const title = type === 'video' ? (item.title || item.caption || item.content) : (item.content || item.caption || 'Untitled');
+    const views = item.views || 0;
+    const likes = item.likes || 0;
+    const timestamp = item.timestamp || item.created_at || item.uploadDate || item.upload_date;
+    const viralScore = item.viral_score;
 
-    [span_13](start_span)const hasThumbnail = !!thumbnailUri && thumbnailUri !== 'https://via.placeholder.com/60';[span_13](end_span)
-
-    const formatCount = (count: number) => count > 999 ? [span_14](start_span)[span_15](start_span)`${(count / 1000).toFixed(1)}K` : count;[span_14](end_span)[span_15](end_span)
+    const hasThumbnail = !!thumbnailUri && thumbnailUri !== 'https://via.placeholder.com/60';
+    const formatCount = (count: number) => count > 999 ? `${(count / 1000).toFixed(1)}K` : count;
 
     return (
         <TouchableOpacity style={styles.contentItem} onPress={onPress}>
             <View style={styles.contentThumbnailContainer}>
                 {hasThumbnail ? (
-                    [span_16](start_span)<Image source={{ uri: thumbnailUri }} style={styles.contentThumbnail} contentFit="cover" />[span_16](end_span)
+                    <Image source={{ uri: thumbnailUri }} style={styles.contentThumbnail} contentFit="cover" />
                 ) : (
                     <View style={[styles.contentThumbnail, styles.placeholderBackground]}>
-                        [span_17](start_span)<MonitorPlay color={Colors.textMuted} size={type === 'reel' ? 30 : 40} />[span_17](end_span)
+                        <MonitorPlay color={Colors.textMuted} size={type === 'reel' ? 30 : 40} />
                     </View>
                 )}
 
                 {(type === 'video' || type === 'reel') && viralScore !== undefined && (
-                    [span_18](start_span)<View style={styles.viralScoreBadge}>[span_18](end_span)
+                    <View style={styles.viralScoreBadge}>
                         <Text style={styles.viralScoreText}>{viralScore.toFixed(0)}</Text>
                     </View>
                 )}
             </View>
             <View style={styles.contentInfo}>
-                [span_19](start_span)<Text style={styles.contentTitle} numberOfLines={2}>{title}</Text>[span_19](end_span)
+                <Text style={styles.contentTitle} numberOfLines={2}>{title}</Text>
                 
                 {!hideStats && (
-                    [span_20](start_span)<View style={styles.contentStats}>[span_20](end_span)
+                    <View style={styles.contentStats}>
                         <View style={styles.contentStatItem}>
                             <Eye color={Colors.textSecondary} size={14} />
-                            [span_21](start_span)<Text style={styles.contentStatItemText}>{formatCount(views)}</Text>[span_21](end_span)
+                            <Text style={styles.contentStatItemText}>{formatCount(views)}</Text>
                         </View>
                         <View style={styles.contentStatItem}>
                             <Heart color={Colors.textSecondary} size={14} />
-                            [span_22](start_span)<Text style={styles.contentStatItemText}>{formatCount(likes)}</Text>[span_22](end_span)
+                            <Text style={styles.contentStatItemText}>{formatCount(likes)}</Text>
                         </View>
                     </View>
                 )}
 
-                [span_23](start_span)<Text style={styles.contentDate}>{formatTimeAgo(timestamp)}</Text>[span_23](end_span)
+                <Text style={styles.contentDate}>{formatTimeAgo(timestamp)}</Text>
             </View>
             <ChevronRight color={Colors.textSecondary} size={20} />
         </TouchableOpacity>
