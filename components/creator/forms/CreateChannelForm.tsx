@@ -1,5 +1,3 @@
-// --- REPLACE THE ENTIRE CreateChannelForm.tsx FILE ---
-
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,7 +64,7 @@ export default function CreateChannelForm({
     );
 }
 
-// NOTE: Styles for CreateChannelForm are extracted from the monolith.
+// STYLES
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
     customHeaderWrapper: { backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border },
