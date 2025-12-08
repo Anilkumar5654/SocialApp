@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal } from 'lucide-react-native';
+import { MessageCircle, MoreHorizontal } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 
@@ -12,7 +12,13 @@ import { Post } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
-// 👇 Ab saare Modals yahi import honge, index.tsx clean rahega
+// 👇 Smart Buttons (Clean & Reusable)
+import LikeBtn from '@/components/buttons/LikeBtn';
+import FollowBtn from '@/components/buttons/FollowBtn';
+import ShareBtn from '@/components/buttons/ShareBtn';
+import SaveBtn from '@/components/buttons/SaveBtn';
+
+// 👇 Modals
 import CommentsModal from '@/components/modals/CommentsModal';
 import OptionsModal from '@/components/modals/OptionsModal';
 import ReportModal from '@/components/modals/ReportModal';
@@ -26,45 +32,27 @@ interface PostItemProps {
 export default function PostItem({ post }: PostItemProps) {
   const { user: currentUser } = useAuth();
   
-  // Local States
-  const [isLiked, setIsLiked] = useState(post.isLiked);
-  const [likesCount, setLikesCount] = useState(post.likes);
-  const [isSaved, setIsSaved] = useState(post.isSaved);
-  
-  // Modal States (Har post apna modal khud sambhalega)
+  // Modal States
   const [showComments, setShowComments] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
   const isOwnPost = String(currentUser?.id) === String(post.user.id);
 
-  // Like Mutation
-  const likeMutation = useMutation({
-    mutationFn: () => isLiked ? api.posts.unlike(post.id) : api.posts.like(post.id),
-  });
-
-  const toggleLike = () => {
-    const newVal = !isLiked;
-    setIsLiked(newVal);
-    setLikesCount(prev => newVal ? prev + 1 : prev - 1);
-    likeMutation.mutate();
-  };
-
-  // Delete Mutation (Options Modal se call hoga)
+  // Delete Mutation
   const deleteMutation = useMutation({
     mutationFn: () => api.posts.delete(post.id),
-    onSuccess: () => {
-        Alert.alert('Success', 'Post deleted');
-        // Note: Yahan ideal ye hai ki React Query cache update ho jaye
-        // ya parent list re-fetch ho.
-    }
+    onSuccess: () => Alert.alert('Success', 'Post deleted')
   });
 
   return (
     <View style={styles.container}>
-      {/* 1. Header */}
+      {/* 1. Header Section */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.userInfo} onPress={() => router.push({ pathname: '/user/[userId]', params: { userId: post.user.id } })}>
+        <TouchableOpacity 
+          style={styles.userInfo} 
+          onPress={() => router.push({ pathname: '/user/[userId]', params: { userId: post.user.id } })}
+        >
           <Image source={{ uri: getMediaUri(post.user.avatar) }} style={styles.avatar} />
           <View>
              <Text style={styles.username}>
@@ -74,64 +62,96 @@ export default function PostItem({ post }: PostItemProps) {
              {post.location && <Text style={styles.location}>{post.location}</Text>}
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setShowOptions(true)}>
-           <MoreHorizontal color={Colors.text} size={24} />
-        </TouchableOpacity>
+
+        {/* Action: Follow or Options */}
+        {isOwnPost ? (
+            <TouchableOpacity onPress={() => setShowOptions(true)}>
+                <MoreHorizontal color={Colors.text} size={24} />
+            </TouchableOpacity>
+        ) : (
+            <FollowBtn userId={post.user.id} isFollowing={!!post.user.is_following} />
+        )}
       </View>
 
-      {/* 2. Content */}
+      {/* 2. Text Content */}
       {post.type === 'text' && post.content && (
           <Text style={styles.textContent}>{post.content}</Text>
       )}
 
-      {/* 3. Images (Full Width) */}
+      {/* 3. Media Carousel */}
       {post.images && post.images.length > 0 && (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.mediaContainer}>
             {post.images.map((img, i) => (
-                <Image key={i} source={{ uri: getMediaUri(img) }} style={styles.postImage} contentFit="cover" />
+                <Image 
+                  key={i} 
+                  source={{ uri: getMediaUri(img) }} 
+                  style={styles.postImage} 
+                  contentFit="cover" 
+                />
             ))}
         </ScrollView>
       )}
 
-      {/* 4. Action Buttons */}
+      {/* 4. Interaction Bar */}
       <View style={styles.actionBar}>
         <View style={styles.leftActions}>
-            <TouchableOpacity onPress={toggleLike}>
-                <Heart color={isLiked ? Colors.primary : Colors.text} fill={isLiked ? Colors.primary : 'transparent'} size={26} />
-            </TouchableOpacity>
+            {/* Like */}
+            <LikeBtn 
+                id={post.id} 
+                isLiked={post.isLiked} 
+                count={post.likes} 
+                type="post" 
+                showCount={false} 
+                size={28} 
+            />
+            
+            {/* Comment */}
             <TouchableOpacity onPress={() => setShowComments(true)}>
                 <MessageCircle color={Colors.text} size={26} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => api.posts.share(post.id)}>
-                <Share2 color={Colors.text} size={24} />
-            </TouchableOpacity>
+            
+            {/* Share */}
+            <ShareBtn 
+                id={post.id} 
+                type="post" 
+                size={24} 
+                color={Colors.text} 
+            />
         </View>
-        <TouchableOpacity onPress={() => setIsSaved(!isSaved)}>
-            <Bookmark color={isSaved ? Colors.primary : Colors.text} fill={isSaved ? Colors.primary : 'transparent'} size={24} />
-        </TouchableOpacity>
+        
+        {/* Save */}
+        <SaveBtn 
+            id={post.id} 
+            type="post" 
+            isSaved={post.isSaved} 
+            size={24} 
+            color={Colors.text} 
+        />
       </View>
 
-      {/* 5. Footer Stats */}
+      {/* 5. Footer Info */}
       <View style={styles.footer}>
-        <Text style={styles.likes}>{likesCount.toLocaleString()} likes</Text>
+        <Text style={styles.likes}>{post.likes} likes</Text> 
         
-        {(post.type === 'photo' || post.type === 'video') && post.content && (
+        {/* Caption */}
+        {(post.type !== 'text') && post.content && (
             <Text style={styles.caption} numberOfLines={2}>
                 <Text style={styles.captionUser}>{post.user.username} </Text>
                 {post.content}
             </Text>
         )}
         
+        {/* View Comments Link */}
         {post.comments > 0 && (
             <TouchableOpacity onPress={() => setShowComments(true)}>
                 <Text style={styles.viewComments}>View all {post.comments} comments</Text>
             </TouchableOpacity>
         )}
+        
         <Text style={styles.date}>{formatTimeAgo(post.created_at)}</Text>
       </View>
 
-      {/* --- MODALS (Lazy Loaded Logic is inside components) --- */}
-      
+      {/* --- Modals --- */}
       {showComments && (
         <CommentsModal 
             visible={showComments} 
@@ -142,25 +162,19 @@ export default function PostItem({ post }: PostItemProps) {
       )}
 
       <OptionsModal 
-        visible={showOptions}
-        onClose={() => setShowOptions(false)}
-        isOwner={isOwnPost}
-        onDelete={() => {
-            Alert.alert('Delete', 'Are you sure?', [
-                { text: 'Cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() }
-            ]);
-        }}
-        onReport={() => setShowReport(true)}
+        visible={showOptions} 
+        onClose={() => setShowOptions(false)} 
+        isOwner={isOwnPost} 
+        onDelete={() => deleteMutation.mutate()} 
+        onReport={() => setShowReport(true)} 
       />
 
-      <ReportModal
-        visible={showReport}
-        onClose={() => setShowReport(false)}
-        entityId={post.id}
-        type="post"
+      <ReportModal 
+        visible={showReport} 
+        onClose={() => setShowReport(false)} 
+        entityId={post.id} 
+        type="post" 
       />
-
     </View>
   );
 }
@@ -176,7 +190,7 @@ const styles = StyleSheet.create({
   mediaContainer: { height: width * 1.25, width: width, backgroundColor: '#111' },
   postImage: { width: width, height: '100%' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, alignItems: 'center' },
-  leftActions: { flexDirection: 'row', gap: 16 },
+  leftActions: { flexDirection: 'row', gap: 20, alignItems: 'center' },
   footer: { paddingHorizontal: 12 },
   likes: { color: Colors.text, fontWeight: '700', marginBottom: 4 },
   caption: { color: Colors.text, lineHeight: 18 },
