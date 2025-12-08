@@ -33,14 +33,14 @@ export default function ReelActions({ item, isLiked, likesCount, onLike, onComme
         <Text style={styles.text}>{formatViews(item.comments_count)}</Text>
       </TouchableOpacity>
 
-      {/* Share Button (Smart) */}
+      {/* Share Button (Updated) */}
       <View style={styles.btn}>
         <ShareBtn 
             id={item.id} 
             type="reel" 
             size={30} 
             color="#fff" 
-            showCount={true} 
+            showCount={true} // 👈 Ab count dikhega
             count={item.shares_count} 
         />
       </View>
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     right: 10,
-    bottom: 100, // Positioned above the bottom info
+    bottom: 100, 
     alignItems: 'center',
     gap: 20,
     zIndex: 20,
@@ -76,4 +76,3 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
 });
-        
