@@ -2,64 +2,51 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Edit3 } from 'lucide-react-native'; // Edit icon
+import { Edit } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { getMediaUri } from '@/utils/media';
-import { formatViews } from '@/utils/format';
+import { getImageUrl } from '@/utils/media'; // Assumed
+import { formatViews } from '@/utils/format'; // Assumed
 
 interface StudioHeaderProps {
   channel: any;
+  handleEditChannel: () => void;
 }
 
-export default function StudioHeader({ channel }: StudioHeaderProps) {
+export default function StudioHeader({ channel, handleEditChannel }: StudioHeaderProps) {
   if (!channel) return null;
+  const avatarUrl = getImageUrl(channel.avatar);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <Image 
-            source={{ uri: getMediaUri(channel.avatar) }} 
-            style={styles.avatar} 
-            contentFit="cover"
+    <View style={styles.channelDetailsSection}>
+        <Image
+          source={{ uri: avatarUrl }} 
+          style={styles.channelAvatar}
+          contentFit="cover"
         />
-        <View style={styles.info}>
-            <Text style={styles.name}>{channel.name}</Text>
-            <Text style={styles.subs}>{formatViews(channel.subscribers_count)} total subscribers</Text>
+        <View style={styles.channelHeaderInfo}>
+          <Text style={styles.channelName}>{channel.name}</Text>
+          <Text style={styles.channelStats}>
+            {formatViews(channel.subscribers_count)} total subscribers
+          </Text>
         </View>
-      </View>
 
-      <TouchableOpacity 
-        style={styles.editBtn} 
-        onPress={() => router.push('/channel/edit')}
-      >
-        <Edit3 size={16} color="#fff" style={{ marginRight: 6 }} />
-        <Text style={styles.editText}>Edit</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+            style={styles.editChannelButton} 
+            onPress={handleEditChannel} 
+        >
+            <Edit color={Colors.text} size={18} />
+            <Text style={styles.editChannelButtonText}>Edit</Text>
+        </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: Colors.background,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: '#333' },
-  info: { justifyContent: 'center' },
-  name: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  subs: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  editBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#333', 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
-    borderRadius: 8 
-  },
-  editText: { color: '#fff', fontWeight: '600', fontSize: 14 }
+    channelDetailsSection: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border, justifyContent: 'space-between' },
+    channelAvatar: { width: 60, height: 60, borderRadius: 30, marginRight: 16, backgroundColor: Colors.surface, borderWidth: 2, borderColor: Colors.border },
+    channelHeaderInfo: { flex: 1, justifyContent: 'center', marginRight: 10 },
+    channelName: { fontSize: 24, fontWeight: '800' as const, color: Colors.text },
+    channelStats: { fontSize: 15, color: Colors.textSecondary, marginTop: 4 },
+    editChannelButton: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, alignSelf: 'flex-start' },
+    editChannelButtonText: { color: Colors.text, fontWeight: '600' as const, fontSize: 14 },
 });
