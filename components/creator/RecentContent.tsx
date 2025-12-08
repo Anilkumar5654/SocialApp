@@ -1,42 +1,33 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Image } from 'expo-image';
-import { ChevronRight } from 'lucide-react-native';
-import Colors from '@/constants/colors';
-import { getMediaUri } from '@/utils/media';
-import { formatTimeAgo } from '@/constants/timeFormat';
+import { View, Text, StyleSheet } from 'react-native';
+import ContentItem from '../ContentItem';
 
-export default function RecentContent({ data }: { data: any[] }) {
-  if (!data || data.length === 0) return null;
+interface RecentContentProps {
+    videos: any[];
+    handleContentPress: (type: 'post' | 'reel' | 'video', id: string) => void;
+}
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Latest videos</Text>
-      
-      {data.map((item) => (
-        <TouchableOpacity key={item.id} style={styles.item}>
-            <Image 
-                source={{ uri: getMediaUri(item.thumbnail_url || item.thumbnailUrl) }} 
-                style={styles.thumb} 
-                contentFit="cover"
-            />
-            <View style={styles.info}>
-                <Text style={styles.title} numberOfLines={1}>{item.title || 'Untitled Video'}</Text>
-                <Text style={styles.date}>{formatTimeAgo(item.created_at)}</Text>
-            </View>
-            <ChevronRight size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+export default function RecentContent({ videos, handleContentPress }: RecentContentProps) {
+    if (videos.length === 0) return null;
+    
+    return (
+        <View style={styles.section}>
+            [span_39](start_span)<Text style={styles.sectionTitle}>Latest videos</Text>[span_39](end_span)
+            
+            {videos.slice(0, 3).map((video) => (
+                <ContentItem
+                    key={video.id}
+                    type="video"
+                    item={video}
+                    [span_40](start_span)onPress={() => handleContentPress('video', video.id)}[span_40](end_span)
+                    hideStats={true} // Display only title and date in this summary
+                />
+            ))}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 12 },
-  item: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, backgroundColor: Colors.background },
-  thumb: { width: 100, height: 56, borderRadius: 8, backgroundColor: '#333' },
-  info: { flex: 1, marginLeft: 12 },
-  title: { fontSize: 15, fontWeight: '600', color: Colors.text, marginBottom: 4 },
-  date: { fontSize: 13, color: Colors.textSecondary },
+    section: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
+    sectionTitle: { fontSize: 18, fontWeight: '700' as const, color: Colors.text, marginBottom: 12 },
 });
