@@ -4,8 +4,8 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Edit } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { getImageUrl } from '@/utils/media'; // Assumed
-import { formatViews } from '@/utils/format'; // Assumed
+import { getMediaUri } from '@/utils/media'; // ✅ FIX: Corrected import and function name
+import { formatViews } from '@/utils/format'; 
 
 interface StudioHeaderProps {
   channel: any;
@@ -14,7 +14,9 @@ interface StudioHeaderProps {
 
 export default function StudioHeader({ channel, handleEditChannel }: StudioHeaderProps) {
   if (!channel) return null;
-  const avatarUrl = getImageUrl(channel.avatar);
+  
+  // ✅ FIX: Using the correct function getMediaUri
+  const avatarUrl = getMediaUri(channel.avatar); 
 
   return (
     <View style={styles.channelDetailsSection}>
