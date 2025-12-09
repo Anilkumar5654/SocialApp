@@ -1,201 +1,229 @@
-// ProfileHeader.tsx (रिप्लेस करने वाला कोड)
+// File: src/components/profile/ProfileHeader.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { Settings, BarChart3, Edit } from 'lucide-react-native';
+
+import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
-import Colors from '@/constants/colors';
-import { router } from 'expo-router'; 
-
-// ✅ FIX: Only FollowBtn import is kept, others removed as requested
-import FollowBtn from '@/components/buttons/FollowBtn'; 
-// ---
-
-interface UserProfile {
-    id: string;
-    username: string;
-    name: string;
-    bio: string;
-    avatar: string;
-    cover_photo?: string;
-    followers_count: number;
-    following_count: number;
-    posts_count: number;
-    is_following: boolean;
-    is_current_user: boolean;
-    is_followed_by_viewer: boolean; 
-    is_private: boolean;
-}
 
 interface ProfileHeaderProps {
-    user: UserProfile;
+    user: any; // User profile data (should include id, username, followers_count, etc.)
 }
 
-export default function ProfileHeader({ user }: ProfileHeaderProps) {
-    const { user: currentUser } = useAuth();
-    const isCurrentUser = user.id === currentUser?.id;
+// --- PROFILE HEADER COMPONENT ---
+export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps) {
+    const { user: authUser, isAuthenticated } = useAuth();
+    
+    // FIX: Check if the profile being viewed is the logged-in user's profile
+    const isMyProfile = isAuthenticated && authUser?.id === profileUser?.id;
 
-    const renderActionButton = () => {
-        if (isCurrentUser) {
-            // FIX: Direct TouchableOpacity for Edit Profile with confirmed path
-            return (
-                <TouchableOpacity 
-                    style={[styles.btn, styles.editBtn]}
-                    onPress={() => router.push('/edit-profile')} 
-                >
-                    <Text style={[styles.text, styles.editText]}>Edit Profile</Text>
-                </TouchableOpacity>
-            ); 
-        }
-
-        return (
-            <FollowBtn
-                userId={user.id}
-                isFollowing={user.is_following}
-                isFollowedByViewer={user.is_followed_by_viewer} 
-            />
-        );
-    };
-
+    const avatarUri = profileUser?.avatar ? getMediaUri(profileUser.avatar) : getMediaUri('assets/default_avatar.jpg');
+    // Using followers_count from the passed profileUser object
+    const followerCount = profileUser?.followers_count?.toLocaleString() || '0'; 
+    
     return (
-        <View style={styles.container}>
-            {user.cover_photo && (
-                <Image source={{ uri: getMediaUri(user.cover_photo) }} style={styles.coverPhoto} contentFit="cover" />
-            )}
+        <View style={styles.headerContainer}>
             
-            <View style={styles.detailsContainer}>
-                <Image source={{ uri: getMediaUri(user.avatar) }} style={styles.avatar} contentFit="cover" />
+            {/* Avatar and Name/Username Row */}
+            <View style={styles.avatarRow}>
+                <Image 
+                    source={{ uri: avatarUri }}
+                    style={styles.profileAvatar}
+                    contentFit="cover"
+                />
+                
+                <View style={styles.profileDetails}>
+                    <Text style={styles.channelName} numberOfLines={1}>
+                        {profileUser?.full_name || 'User Profile'}
+                    </Text>
+                    <Text style={styles.channelHandle}>
+                        {profileUser?.username ? `@${profileUser.username}` : 'No username'}
+                        {' · '}
+                        {followerCount} Followers
+                    </Text>
+                </View>
+            </View>
 
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.username}>@{user.username}</Text>
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>12</Text>
+                    <Text style={styles.statLabel}>Posts</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{followerCount}</Text>
+                    <Text style={styles.statLabel}>Followers</Text>
+                </View>
+                <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>88</Text>
+                    <Text style={styles.statLabel}>Following</Text>
+                </View>
+            </View>
 
-                {user.bio ? (
-                    <Text style={styles.bio}>{user.bio}</Text>
+            {/* Action Buttons (Conditional Rendering) */}
+            <View style={styles.actionRow}>
+                {isMyProfile ? (
+                    // --- 🌟 YOUR PROFILE: EDIT, STUDIO, SETTINGS 🌟 ---
+                    <>
+                        {/* 1. Edit Profile Button */}
+                        <TouchableOpacity 
+                            style={styles.actionButton}
+                            onPress={() => router.push('/edit-profile')}
+                        >
+                            <Edit size={20} color={Colors.text} style={{ marginRight: 5 }} />
+                            <Text style={styles.actionButtonText}>Edit Profile</Text>
+                        </TouchableOpacity>
+                        
+                        {/* 2. Creator Studio Button (Icon Only) */}
+                        <TouchableOpacity 
+                            style={styles.iconButton}
+                            onPress={() => router.push('/creator-studio')}
+                        >
+                            <BarChart3 size={20} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+                        
+                        {/* 3. Settings Button (Icon Only) */}
+                        <TouchableOpacity 
+                            style={styles.iconButton}
+                            onPress={() => router.push('/settings')}
+                        >
+                            <Settings size={20} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+                    </>
                 ) : (
-                    !isCurrentUser && <Text style={styles.bioPlaceholder}>No bio yet.</Text>
-                )}
-
-                <View style={styles.actionButtonContainer}>
-                    {renderActionButton()}
-                </View>
-
-                <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.posts_count}</Text>
-                        <Text style={styles.statLabel}>Posts</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.followers_count}</Text>
-                        <Text style={styles.statLabel}>Followers</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.following_count}</Text>
-                        <Text style={styles.statLabel}>Following</Text>
-                    </View>
-                </View>
-
-                {user.is_private && !user.is_following && !isCurrentUser && (
-                    <Text style={styles.privateMessage}>This account is private.</Text>
+                    // --- OTHER USER'S PROFILE: FOLLOW BUTTON (Replace with your actual FollowBtn component) ---
+                    <TouchableOpacity 
+                        style={styles.followButton}
+                        onPress={() => console.log('Follow button pressed')}
+                    >
+                        <Text style={styles.followButtonText}>Follow</Text>
+                    </TouchableOpacity>
+                    // NOTE: If you are using your fully fixed FollowBtn.tsx, replace the above TouchableOpacity with:
+                    // <FollowBtn userId={profileUser.id} isFollowing={false} isFollowedByViewer={false} />
                 )}
             </View>
+            
+            <Text style={styles.descriptionText} numberOfLines={2}>
+                 {profileUser?.bio || 'No bio provided.'}
+             </Text>
         </View>
     );
 }
 
+// --- STYLES ---
 const styles = StyleSheet.create({
-    container: {
-        backgroundColor: Colors.background,
-        paddingBottom: 16,
-    },
-    coverPhoto: {
+    headerContainer: {
         width: '100%',
-        height: 120,
-        backgroundColor: Colors.border,
+        backgroundColor: Colors.background,
+        paddingHorizontal: 16,
+        paddingVertical: 15,
     },
-    detailsContainer: {
-        paddingHorizontal: 20,
-        marginTop: -30, 
+    avatarRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
     },
-    avatar: {
+    profileAvatar: {
         width: 80,
         height: 80,
         borderRadius: 40,
-        borderWidth: 3,
-        borderColor: Colors.background,
-        marginBottom: 10,
+        borderWidth: 2,
+        borderColor: '#333',
         backgroundColor: '#333',
+        marginRight: 15,
     },
-    name: {
-        fontSize: 20,
-        fontWeight: 'bold',
+    profileDetails: {
+        flex: 1,
+    },
+    channelName: {
         color: Colors.text,
+        fontSize: 24,
+        fontWeight: '700',
     },
-    username: {
-        fontSize: 14,
+    channelHandle: {
         color: Colors.textSecondary,
-        marginBottom: 8,
-    },
-    bio: {
         fontSize: 14,
-        color: Colors.text,
-        marginBottom: 10,
+        marginTop: 2,
     },
-    bioPlaceholder: {
+    descriptionText: {
+        color: Colors.textSecondary, 
         fontSize: 14,
-        color: Colors.textTertiary,
-        fontStyle: 'italic',
-        marginBottom: 10,
+        marginTop: 15,
+        lineHeight: 20,
     },
-    actionButtonContainer: {
-        marginVertical: 10,
-    },
-    statsContainer: {
+    
+    // Stats
+    statsRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'space-around',
+        alignItems: 'center',
         paddingVertical: 10,
-        borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderColor: Colors.border,
-        marginTop: 10,
+        borderTopWidth: 1,
+        borderColor: '#262626',
     },
     statItem: {
         alignItems: 'center',
-        flex: 1,
     },
     statNumber: {
-        fontSize: 16,
-        fontWeight: 'bold',
         color: Colors.text,
+        fontSize: 18,
+        fontWeight: '700',
     },
     statLabel: {
-        fontSize: 12,
         color: Colors.textSecondary,
+        fontSize: 12,
     },
-    privateMessage: {
-        fontSize: 14,
-        color: Colors.primary,
-        textAlign: 'center',
-        marginTop: 15,
-        fontWeight: '600',
+    
+    // Action Row (My Profile & Other Profile Buttons)
+    actionRow: {
+        flexDirection: 'row',
+        marginTop: 20,
+        gap: 10,
     },
-    btn: {
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 8,
-        alignItems: 'center',
+    
+    // Buttons for MY PROFILE
+    actionButton: { // Edit Profile Button
+        flexDirection: 'row',
+        backgroundColor: '#262626',
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
         justifyContent: 'center',
-        minWidth: 80,
+        alignItems: 'center',
+        flex: 1,
     },
-    editBtn: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    text: {
-        fontWeight: '600',
-        fontSize: 13,
-    },
-    editText: {
+    actionButtonText: {
         color: Colors.text,
-    }
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    iconButton: { // Studio & Settings Buttons
+        backgroundColor: '#262626',
+        width: 40, 
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    
+    // Button for OTHER USER
+    followButton: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flex: 1,
+    },
+    followButtonText: {
+        color: Colors.text,
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });
