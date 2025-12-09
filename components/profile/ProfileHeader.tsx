@@ -11,18 +11,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
 interface ProfileHeaderProps {
-    user: any; // User profile data (should include id, username, followers_count, etc.)
+    user: any; // User profile data
 }
 
 // --- PROFILE HEADER COMPONENT ---
 export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps) {
     const { user: authUser, isAuthenticated } = useAuth();
     
-    // FIX: Check if the profile being viewed is the logged-in user's profile
-    const isMyProfile = isAuthenticated && authUser?.id === profileUser?.id;
+    // 🎯 CRITICAL FIX: Ensure ID comparison works across String/Number types
+    const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
 
     const avatarUri = profileUser?.avatar ? getMediaUri(profileUser.avatar) : getMediaUri('assets/default_avatar.jpg');
-    // Using followers_count from the passed profileUser object
     const followerCount = profileUser?.followers_count?.toLocaleString() || '0'; 
     
     return (
@@ -37,13 +36,12 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 />
                 
                 <View style={styles.profileDetails}>
+                    {/* Text Size Increased */}
                     <Text style={styles.channelName} numberOfLines={1}>
                         {profileUser?.full_name || 'User Profile'}
                     </Text>
                     <Text style={styles.channelHandle}>
                         {profileUser?.username ? `@${profileUser.username}` : 'No username'}
-                        {' · '}
-                        {followerCount} Followers
                     </Text>
                 </View>
             </View>
@@ -51,15 +49,18 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
             {/* Stats Row */}
             <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                    <Text style={styles.statNumber}>12</Text>
+                    {/* Text Size Increased */}
+                    <Text style={styles.statNumber}>18</Text>
                     <Text style={styles.statLabel}>Posts</Text>
                 </View>
                 <View style={styles.statItem}>
+                     {/* Text Size Increased */}
                     <Text style={styles.statNumber}>{followerCount}</Text>
                     <Text style={styles.statLabel}>Followers</Text>
                 </View>
                 <View style={styles.statItem}>
-                    <Text style={styles.statNumber}>88</Text>
+                     {/* Text Size Increased */}
+                    <Text style={styles.statNumber}>2</Text>
                     <Text style={styles.statLabel}>Following</Text>
                 </View>
             </View>
@@ -95,15 +96,14 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                         </TouchableOpacity>
                     </>
                 ) : (
-                    // --- OTHER USER'S PROFILE: FOLLOW BUTTON (Replace with your actual FollowBtn component) ---
+                    // --- OTHER USER'S PROFILE: FOLLOW BUTTON ---
+                    // Assuming you will import FollowBtn here later, using a simple button for now
                     <TouchableOpacity 
                         style={styles.followButton}
                         onPress={() => console.log('Follow button pressed')}
                     >
-                        <Text style={styles.followButtonText}>Follow</Text>
+                        <Text style={styles.followButtonText}>Following</Text>
                     </TouchableOpacity>
-                    // NOTE: If you are using your fully fixed FollowBtn.tsx, replace the above TouchableOpacity with:
-                    // <FollowBtn userId={profileUser.id} isFollowing={false} isFollowedByViewer={false} />
                 )}
             </View>
             
@@ -141,19 +141,19 @@ const styles = StyleSheet.create({
     },
     channelName: {
         color: Colors.text,
-        fontSize: 24,
+        fontSize: 26, // Increased
         fontWeight: '700',
     },
     channelHandle: {
         color: Colors.textSecondary,
-        fontSize: 14,
+        fontSize: 16, // Increased
         marginTop: 2,
     },
     descriptionText: {
         color: Colors.textSecondary, 
-        fontSize: 14,
+        fontSize: 15, // Increased
         marginTop: 15,
-        lineHeight: 20,
+        lineHeight: 22,
     },
     
     // Stats
@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
     },
     statNumber: {
         color: Colors.text,
-        fontSize: 18,
+        fontSize: 20, // Increased
         fontWeight: '700',
     },
     statLabel: {
         color: Colors.textSecondary,
-        fontSize: 12,
+        fontSize: 14, // Increased
     },
     
     // Action Row (My Profile & Other Profile Buttons)
@@ -199,14 +199,14 @@ const styles = StyleSheet.create({
     },
     actionButtonText: {
         color: Colors.text,
-        fontSize: 14,
+        fontSize: 16, // Increased
         fontWeight: '600',
     },
     iconButton: { // Studio & Settings Buttons
         backgroundColor: '#262626',
-        width: 40, 
-        height: 40,
-        borderRadius: 20,
+        width: 45, // Increased size
+        height: 45, // Increased size
+        borderRadius: 22.5,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     // Button for OTHER USER
     followButton: {
         backgroundColor: Colors.primary,
-        paddingVertical: 8,
+        paddingVertical: 10, // Increased padding
         paddingHorizontal: 15,
         borderRadius: 20,
         justifyContent: 'center',
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     },
     followButtonText: {
         color: Colors.text,
-        fontSize: 14,
+        fontSize: 16, // Increased
         fontWeight: '600',
     },
 });
