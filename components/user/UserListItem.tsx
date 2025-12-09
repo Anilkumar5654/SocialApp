@@ -1,9 +1,16 @@
+// components/user/UserListItem.tsx
+
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query'; 
 import Colors from '@/constants/colors';
 import { getMediaUri } from '@/utils/media';
+import { api } from '@/services/api'; 
+import FollowBtn from '@/components/buttons/FollowBtn'; 
+import { useAuth } from '@/contexts/AuthContext'; 
+import { CheckCircle } from 'lucide-react-native'; 
 
 interface UserListItemProps {
   user: {
@@ -12,21 +19,35 @@ interface UserListItemProps {
     username: string;
     avatar: string;
     isVerified?: boolean;
-    is_verified?: boolean; // Handle potential API inconsistency
+    is_verified?: boolean; 
     followersCount?: number;
-    followers_count?: number; // Handle potential API inconsistency
+    followers_count?: number; 
+    is_following?: boolean; 
   };
-  onFollow?: (userId: string) => void;
-  isFollowLoading?: boolean;
 }
 
-export default function UserListItem({ user, onFollow, isFollowLoading }: UserListItemProps) {
+export default function UserListItem({ user }: UserListItemProps) {
+  const { user: currentUser } = useAuth();
+  
+  // 1. Fetch fresh, definitive follow status
+  const { data: profileData, isLoading } = useQuery({
+    queryKey: ['user-follow-status', user.id], 
+    queryFn: () => api.users.getProfile(user.id), 
+    enabled: String(currentUser?.id) !== String(user.id),
+    staleTime: 5000, 
+  });
+
+  // 2. Definitive Status Extraction: new data > stale data (Search Prop)
+  const definitiveIsFollowing = (profileData as any)?.user?.is_following ?? user.is_following ?? false; 
+  
   const handlePress = () => {
     router.push({ pathname: '/user/[userId]', params: { userId: user.id } });
   };
 
   const followers = user.followersCount || user.followers_count || 0;
-  const isVerified = user.isVerified || user.is_verified;
+  const isVerified = user.isVerified || user.is_verified; 
+  const isOwnProfile = String(currentUser?.id) === String(user.id);
+
 
   return (
     <TouchableOpacity style={styles.container} onPress={handlePress}>
@@ -34,23 +55,32 @@ export default function UserListItem({ user, onFollow, isFollowLoading }: UserLi
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text style={styles.name}>{user.name}</Text>
-          {isVerified && <Text style={styles.verifiedBadge}>✓</Text>}
+          
+          {/* VERIFIED BADGE */}
+          {isVerified && (
+            <CheckCircle 
+              color={Colors.primary} 
+              size={18} 
+              style={styles.verifiedIcon}
+            />
+          )}
         </View>
         <Text style={styles.username}>@{user.username}</Text>
         <Text style={styles.followers}>
           {followers > 1000 ? `${(followers / 1000).toFixed(1)}K` : followers} followers
         </Text>
       </View>
-      {onFollow && (
-        <TouchableOpacity
-          style={styles.followButton}
-          onPress={() => onFollow(user.id)}
-          disabled={isFollowLoading}
-        >
-          <Text style={styles.followButtonText}>
-            {isFollowLoading ? '...' : 'Follow'}
-          </Text>
-        </TouchableOpacity>
+
+      {/* RENDER FOLLOW BUTTON */}
+      {!isOwnProfile && (
+        isLoading ? (
+          <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 16 }} />
+        ) : (
+          <FollowBtn 
+            userId={user.id} 
+            isFollowing={definitiveIsFollowing} 
+          />
+        )
       )}
     </TouchableOpacity>
   );
@@ -85,9 +115,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginRight: 4,
   },
-  verifiedBadge: {
-    color: Colors.primary,
-    fontSize: 14,
+  verifiedIcon: { 
+    marginLeft: 4,
+    marginTop: 2, 
   },
   username: {
     fontSize: 14,
@@ -97,16 +127,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     marginTop: 2,
-  },
-  followButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  followButtonText: {
-    color: Colors.background,
-    fontWeight: '600',
-    fontSize: 13,
   },
 });
