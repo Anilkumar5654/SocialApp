@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Animated, ActivityIndicator, KeyboardAvoidingView, PanResponder, StatusBar, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router'; // Stack import kiya gaya
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Heart, Send, Trash2, Eye } from 'lucide-react-native';
@@ -17,7 +17,7 @@ import { api, MEDIA_BASE_URL } from '@/services/api';
 import FloatingHeart from './FloatingHeart';
 import ViewersModal from './ViewersModal';
 import CustomAlert from '@/components/modals/CustomAlert'; 
-import { useToast } from '@/contexts/ToastContext'; // Assuming this hook is available
+import { useToast } from '@/contexts/ToastContext'; 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,6 +57,8 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     const map = new Map();
     storiesData.stories.forEach((story: any) => {
       const uid = story.user?.id || story.user_id;
+      // Filter out own stories for the main list if needed, 
+      // but API filter is now in place. We group the received stories.
       if (!map.has(uid)) { map.set(uid, { userId: uid, user: story.user, stories: [] }); groups.push(map.get(uid)); }
       map.get(uid).stories.push(story);
     });
@@ -74,7 +76,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   const currentStory = currentGroup?.stories[currentStoryIndex];
   const isOwnStory = String(currentGroup?.userId) === String(currentUser?.id);
 
-  // --- EFFECTS ---
+  // --- EFFECTS and MUTATIONS ---
   useEffect(() => {
     if (currentStory) {
         setHasLiked(!!currentStory.is_liked);
@@ -91,14 +93,12 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     onSuccess: () => { 
         queryClient.invalidateQueries({ queryKey: ['stories'] }); 
         setAlertConfig({ visible: false });
-        // ✅ FIX: AppToast for success notification
         toast.show('Story deleted successfully.', 'success'); 
         
         if (currentGroup.stories.length === 1) closeViewer(); else advanceStory(); 
     },
     onError: (err: any) => {
         setAlertConfig({ visible: false }); 
-        // ✅ FIX: AppToast for error notification
         toast.show(`Failed to delete story: ${err.message}`, 'error');
         setIsPaused(false);
     } 
@@ -158,11 +158,13 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
 
   const getUrl = (path: string) => path?.startsWith('http') ? path : `${MEDIA_BASE_URL}/${path}`;
   
+  // FIX: Assuming this is the endpoint used for text replies/DMs
   const handleReplySend = async () => {
     if (!message.trim() || !currentStory) return;
-    // We assume api.stories.reply exists now
     try {
-        await api.stories.react(currentStory.id, message.trim()); // Using react endpoint for DM/reply simplicity
+        // NOTE: If you have a separate API like api.messages.sendDM, use that.
+        // Using react endpoint for simple reply tracking if no separate DM API exists.
+        await api.stories.react(currentStory.id, message.trim()); 
         setMessage('');
         toast.show('Message sent!', 'success');
     } catch (error: any) {
@@ -174,6 +176,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} /> 
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
@@ -190,8 +193,9 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
         </View>
 
         {!isPaused && !alertConfig.visible && !showViewers && (
-            <View style={[styles.overlay, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}>
-                {/* Header */}
+            // FIX: PaddingTop ensures content starts below status bar
+            <View style={[styles.overlay, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}> 
+                {/* Header (Progress, User Info, Close Button) */}
                 <View style={styles.topSection}>
                     <View style={styles.progressContainer}>
                         {currentGroup.stories.map((_: any, i: number) => (
@@ -203,6 +207,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                         ))}
                     </View>
                     <View style={styles.headerRow}>
+                        {/* FIX: UserInfo is correctly positioned at the top */}
                         <View style={styles.userInfo}>
                             <Image source={{ uri: getUrl(currentGroup.user?.avatar) }} style={styles.avatar} />
                             <View>
@@ -218,7 +223,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                     </View>
                 </View>
 
-                {/* Footer */}
+                {/* Footer (Caption, Reply/Views) */}
                 <View style={styles.footer}>
                     <View style={styles.heartsContainer} pointerEvents="none">
                         {hearts.map(id => <FloatingHeart key={id} onComplete={() => setHearts(p => p.filter(h => h !== id))} />)}
