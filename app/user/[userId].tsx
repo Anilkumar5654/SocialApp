@@ -1,3 +1,4 @@
+// app/user/[userId].tsx (UserProfileScreen.tsx)
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
@@ -9,28 +10,24 @@ import Colors from '@/constants/colors';
 import { api } from '@/services/api';
 import { getMediaUri } from '@/utils/media';
 
-// ✅ Fix: Only the necessary header is imported. We trust ProfileHeader now handles FollowBtn correctly.
+// ✅ Fix: Only the necessary header is imported.
 import ProfileHeader from '@/components/profile/ProfileHeader'; 
-// Note: We deliberately remove any direct or indirect faulty imports like FollowBtn or EditProfileBtn 
 
 const { width } = Dimensions.get('window');
 const GRID_SIZE = (width - 2) / 3;
 
 export default function UserProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId?: string }>();
-  // Handle array/string param safely
   const resolvedUserId = Array.isArray(userId) ? userId[0] : userId ?? '';
 
   const [activeTab, setActiveTab] = useState<'posts'>('posts');
 
-  // 1. Fetch User Data
   const { data: profileData, isLoading: loadingProfile, isError } = useQuery({
     queryKey: ['user-profile', resolvedUserId],
     queryFn: () => api.users.getProfile(resolvedUserId),
     enabled: !!resolvedUserId,
   });
 
-  // 2. Fetch User Posts
   const { data: postsData, isLoading: loadingPosts } = useQuery({
     queryKey: ['user-posts', resolvedUserId],
     queryFn: () => api.users.getPosts(resolvedUserId, 1),
@@ -79,11 +76,9 @@ export default function UserProfileScreen() {
         data={posts}
         keyExtractor={(item) => item.id.toString()}
         numColumns={3}
-        // 👇 Header Component handles all profile details
         ListHeaderComponent={
             <>
                 <ProfileHeader user={user} />
-                {/* Tabs Section */}
                 <View style={styles.tabs}>
                     <TouchableOpacity style={[styles.tab, styles.tabActive]}>
                         <Grid color={Colors.primary} size={22} />
