@@ -6,7 +6,7 @@ import { getMediaUri } from '@/utils/media';
 import Colors from '@/constants/colors';
 
 // Ensure you have imported FollowBtn
-import FollowBtn from '@/components/common/FollowBtn'; 
+import FollowBtn from '@/components/buttons/FollowBtn'; 
 // Ensure you have imported EditProfileBtn if needed
 import EditProfileBtn from '@/components/profile/EditProfileBtn'; 
 
