@@ -93,7 +93,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
         setAlertConfig({ visible: false });
         toast.show('Story deleted successfully.', 'success'); 
         
-        if (currentGroup.stories.length === 1) closeViewer(); else advanceStory(); 
+        if (currentGroup?.stories.length === 1) closeViewer(); else advanceStory(); 
     },
     onError: (err: any) => {
         setAlertConfig({ visible: false }); 
@@ -105,7 +105,6 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   const closeViewer = () => router.back();
 
   const advanceStory = useCallback(() => {
-    // FIX: Add safety check for crash
     if (storyGroups.length === 0 || !currentGroup) {
         closeViewer();
         return;
@@ -182,15 +181,14 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     }
   };
   
-  // 🌟 NEW: Function to handle navigation to the user's profile
+  // 🌟 FIX: Function to handle navigation to the user's profile with consistent path
   const handleProfileTap = () => {
     if (!currentGroup?.user?.id) return;
-    // 1. Pause the story timer/video
     setIsPaused(true); 
     
-    // 2. Navigate to the user's profile
+    // 🗺️ Routing: /user/[userId] (Consistent)
     router.push({
-      pathname: '/users/[userId]', // Assuming your profile route
+      pathname: '/user/[userId]', 
       params: { userId: currentGroup.user.id }
     });
   };
