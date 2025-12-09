@@ -1,14 +1,15 @@
+// ProfileHeader.tsx (रिप्लेस करने वाला कोड)
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authContext';
 import { getMediaUri } from '@/utils/media';
 import Colors from '@/constants/colors';
+import { router } from 'expo-router'; 
 
-// ✅ FIX: Corrected import path
+// ✅ FIX: Only FollowBtn import is kept, others removed as requested
 import FollowBtn from '@/components/buttons/FollowBtn'; 
-import EditProfileBtn from '@/components/buttons/EditProfileBtn'; 
-// --
+// ---
 
 interface UserProfile {
     id: string;
@@ -36,7 +37,15 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
 
     const renderActionButton = () => {
         if (isCurrentUser) {
-            return <EditProfileBtn />; 
+            // FIX: Direct TouchableOpacity for Edit Profile with confirmed path
+            return (
+                <TouchableOpacity 
+                    style={[styles.btn, styles.editBtn]}
+                    onPress={() => router.push('/edit-profile')} 
+                >
+                    <Text style={[styles.text, styles.editText]}>Edit Profile</Text>
+                </TouchableOpacity>
+            ); 
         }
 
         return (
@@ -168,5 +177,25 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 15,
         fontWeight: '600',
+    },
+    btn: {
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 80,
+    },
+    editBtn: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    text: {
+        fontWeight: '600',
+        fontSize: 13,
+    },
+    editText: {
+        color: Colors.text,
     }
 });
