@@ -1,201 +1,130 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { useAuth } from '@/contexts/AuthContext';
-import { getMediaUri } from '@/utils/media';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Grid } from 'lucide-react-native';
+
 import Colors from '@/constants/colors';
-import { router } from 'expo-router'; // router is needed for navigation
+import { api } from '@/services/api';
+import { getMediaUri } from '@/utils/media';
 
-// ✅ Corrected FollowBtn Import
-import FollowBtn from '@/components/buttons/FollowBtn'; 
-// EditProfileBtn component is replaced by direct navigation logic
+// ✅ Fix: Only the necessary header is imported. We trust ProfileHeader now handles FollowBtn correctly.
+import ProfileHeader from '@/components/profile/ProfileHeader'; 
+// Note: We deliberately remove any direct or indirect faulty imports like FollowBtn or EditProfileBtn 
 
-interface UserProfile {
-    id: string;
-    username: string;
-    name: string;
-    bio: string;
-    avatar: string;
-    cover_photo?: string;
-    followers_count: number;
-    following_count: number;
-    posts_count: number;
-    is_following: boolean;
-    is_current_user: boolean;
-    is_followed_by_viewer: boolean; 
-    is_private: boolean;
-}
+const { width } = Dimensions.get('window');
+const GRID_SIZE = (width - 2) / 3;
 
-interface ProfileHeaderProps {
-    user: UserProfile;
-}
+export default function UserProfileScreen() {
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
+  // Handle array/string param safely
+  const resolvedUserId = Array.isArray(userId) ? userId[0] : userId ?? '';
 
-export default function ProfileHeader({ user }: ProfileHeaderProps) {
-    const { user: currentUser } = useAuth();
-    const isCurrentUser = user.id === currentUser?.id;
+  const [activeTab, setActiveTab] = useState<'posts'>('posts');
 
-    const renderActionButton = () => {
-        if (isCurrentUser) {
-            // 🎯 FINAL FIX: Correct navigation path confirmed as '/edit-profile'
-            return (
-                <TouchableOpacity 
-                    style={[styles.btn, styles.editBtn]}
-                    onPress={() => router.push('/edit-profile')} 
-                >
-                    <Text style={[styles.text, styles.editText]}>Edit Profile</Text>
-                </TouchableOpacity>
-            ); 
-        }
+  // 1. Fetch User Data
+  const { data: profileData, isLoading: loadingProfile, isError } = useQuery({
+    queryKey: ['user-profile', resolvedUserId],
+    queryFn: () => api.users.getProfile(resolvedUserId),
+    enabled: !!resolvedUserId,
+  });
 
-        return (
-            <FollowBtn
-                userId={user.id}
-                isFollowing={user.is_following}
-                isFollowedByViewer={user.is_followed_by_viewer} 
-            />
-        );
-    };
+  // 2. Fetch User Posts
+  const { data: postsData, isLoading: loadingPosts } = useQuery({
+    queryKey: ['user-posts', resolvedUserId],
+    queryFn: () => api.users.getPosts(resolvedUserId, 1),
+    enabled: !!resolvedUserId,
+  });
 
+  const user = profileData?.user;
+  const posts = postsData?.posts || [];
+
+  if (loadingProfile) {
     return (
-        <View style={styles.container}>
-            {user.cover_photo && (
-                <Image source={{ uri: getMediaUri(user.cover_photo) }} style={styles.coverPhoto} contentFit="cover" />
-            )}
-            
-            <View style={styles.detailsContainer}>
-                <Image source={{ uri: getMediaUri(user.avatar) }} style={styles.avatar} contentFit="cover" />
-
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.username}>@{user.username}</Text>
-
-                {user.bio ? (
-                    <Text style={styles.bio}>{user.bio}</Text>
-                ) : (
-                    !isCurrentUser && <Text style={styles.bioPlaceholder}>No bio yet.</Text>
-                )}
-
-                <View style={styles.actionButtonContainer}>
-                    {renderActionButton()}
-                </View>
-
-                <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.posts_count}</Text>
-                        <Text style={styles.statLabel}>Posts</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.followers_count}</Text>
-                        <Text style={styles.statLabel}>Followers</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{user.following_count}</Text>
-                        <Text style={styles.statLabel}>Following</Text>
-                    </View>
-                </View>
-
-                {user.is_private && !user.is_following && !isCurrentUser && (
-                    <Text style={styles.privateMessage}>This account is private.</Text>
-                )}
-            </View>
+        <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
         </View>
     );
+  }
+
+  if (isError || !user) {
+    return (
+        <View style={styles.center}>
+            <Text style={{ color: Colors.textSecondary }}>User not found</Text>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                <Text style={{ color: Colors.primary }}>Go Back</Text>
+            </TouchableOpacity>
+        </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{ 
+            headerShown: true, 
+            title: user.username, 
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
+            headerLeft: () => (
+                <TouchableOpacity onPress={() => router.back()} style={{ paddingRight: 10 }}>
+                    <ArrowLeft color={Colors.text} size={24} />
+                </TouchableOpacity>
+            )
+        }} 
+      />
+
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={3}
+        // 👇 Header Component handles all profile details
+        ListHeaderComponent={
+            <>
+                <ProfileHeader user={user} />
+                {/* Tabs Section */}
+                <View style={styles.tabs}>
+                    <TouchableOpacity style={[styles.tab, styles.tabActive]}>
+                        <Grid color={Colors.primary} size={22} />
+                    </TouchableOpacity>
+                </View>
+            </>
+        }
+        renderItem={({ item }) => {
+            const uri = item.images?.[0] ? getMediaUri(item.images[0]) : getMediaUri(item.thumbnail_url);
+            return (
+                <TouchableOpacity 
+                    style={styles.gridItem} 
+                    onPress={() => router.push({ pathname: '/post/[postId]', params: { postId: item.id } })}
+                >
+                    <Image source={{ uri }} style={styles.gridImg} contentFit="cover" />
+                </TouchableOpacity>
+            );
+        }}
+        ListEmptyComponent={
+            !loadingPosts ? (
+                <View style={styles.empty}>
+                    <Text style={styles.emptyText}>No posts yet</Text>
+                </View>
+            ) : <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
+        }
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        backgroundColor: Colors.background,
-        paddingBottom: 16,
-    },
-    coverPhoto: {
-        width: '100%',
-        height: 120,
-        backgroundColor: Colors.border,
-    },
-    detailsContainer: {
-        paddingHorizontal: 20,
-        marginTop: -30, 
-    },
-    avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 3,
-        borderColor: Colors.background,
-        marginBottom: 10,
-        backgroundColor: '#333',
-    },
-    name: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: Colors.text,
-    },
-    username: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        marginBottom: 8,
-    },
-    bio: {
-        fontSize: 14,
-        color: Colors.text,
-        marginBottom: 10,
-    },
-    bioPlaceholder: {
-        fontSize: 14,
-        color: Colors.textTertiary,
-        fontStyle: 'italic',
-        marginBottom: 10,
-    },
-    actionButtonContainer: {
-        marginVertical: 10,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 10,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: Colors.border,
-        marginTop: 10,
-    },
-    statItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    statNumber: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Colors.text,
-    },
-    statLabel: {
-        fontSize: 12,
-        color: Colors.textSecondary,
-    },
-    privateMessage: {
-        fontSize: 14,
-        color: Colors.primary,
-        textAlign: 'center',
-        marginTop: 15,
-        fontWeight: '600',
-    },
-    // Styles for Edit Profile button
-    btn: {
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 80,
-    },
-    editBtn: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    text: {
-        fontWeight: '600',
-        fontSize: 13,
-    },
-    editText: {
-        color: Colors.text,
-    }
+  container: { flex: 1, backgroundColor: Colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  
+  tabs: { borderBottomWidth: 1, borderColor: Colors.border, flexDirection: 'row', justifyContent: 'center' },
+  tab: { paddingVertical: 14, width: '33%', alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderColor: Colors.primary },
+  
+  gridItem: { width: GRID_SIZE, height: GRID_SIZE, margin: 0.5, backgroundColor: '#1A1A1A' },
+  gridImg: { width: '100%', height: '100%' },
+  
+  empty: { padding: 40, alignItems: 'center' },
+  emptyText: { color: Colors.textSecondary }
 });
