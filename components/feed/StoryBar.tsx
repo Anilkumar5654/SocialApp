@@ -44,7 +44,7 @@ export default function StoryBar() {
     allStories.forEach((story: any) => {
       const uid = String(story.user_id); // FIX 2: Convert API user_id to string
 
-      // Filter: Handle Current User Stories (if any)
+      // Filter: Handle Current User Stories (will work now due to string conversion)
       if (uid === currentUserId) {
           currentUserStories.push(story);
           return; 
@@ -84,7 +84,7 @@ export default function StoryBar() {
     if (currentUserStories.length > 0) {
         const userGroup: StoryGroup = {
             user_id: currentUserId,
-            username: user?.username || 'Your Story', // Use actual username if available
+            username: user?.username || 'Your Story', 
             avatar: user?.avatar || '',
             stories: currentUserStories,
             hasUnviewed: currentUserStories.some(s => !s.is_viewed) 
