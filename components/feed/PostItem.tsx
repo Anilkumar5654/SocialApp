@@ -1,7 +1,9 @@
+// components/user/UserListItem.tsx
+
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { MessageCircle, MoreHorizontal } from 'lucide-react-native';
+import { MessageCircle, MoreHorizontal, CheckCircle } from 'lucide-react-native'; // CheckCircle imported
 import { router } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 
@@ -11,7 +13,7 @@ import { api } from '@/services/api';
 import { Post } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
-import { useToast } from '@/contexts/ToastContext'; // 👈 Import useToast
+import { useToast } from '@/contexts/ToastContext'; 
 
 // 👇 Smart Buttons (Clean & Reusable)
 import LikeBtn from '@/components/buttons/LikeBtn';
@@ -32,7 +34,7 @@ interface PostItemProps {
 
 export default function PostItem({ post }: PostItemProps) {
   const { user: currentUser } = useAuth();
-  const toast = useToast(); // 👈 Initialize toast
+  const toast = useToast(); 
   
   // Modal States
   const [showComments, setShowComments] = useState(false);
@@ -40,6 +42,8 @@ export default function PostItem({ post }: PostItemProps) {
   const [showReport, setShowReport] = useState(false);
 
   const isOwnPost = String(currentUser?.id) === String(post.user.id);
+  // Check for verification status
+  const isVerified = post.user.isVerified || post.user.is_verified; 
 
   // Delete Mutation
   const deleteMutation = useMutation({
@@ -59,10 +63,21 @@ export default function PostItem({ post }: PostItemProps) {
         >
           <Image source={{ uri: getMediaUri(post.user.avatar) }} style={styles.avatar} />
           <View>
-             <Text style={styles.username}>
-                {post.user.name || post.user.username} 
-                {post.user.isVerified && <Text style={{ color: Colors.info }}> ✓</Text>}
-             </Text>
+             {/* ✅ UPDATED NAME AND VERIFIED BADGE SECTION */}
+             <View style={styles.nameRow}> 
+                <Text style={styles.username}>
+                   {post.user.name || post.user.username} 
+                </Text>
+                
+                {/* 🚀 VERIFIED BADGE FIX */}
+                {isVerified && (
+                    <CheckCircle 
+                        color={Colors.primary} 
+                        size={14} 
+                        style={styles.verifiedIcon}
+                    />
+                )}
+             </View>
              {post.location && <Text style={styles.location}>{post.location}</Text>}
           </View>
         </TouchableOpacity>
@@ -188,7 +203,25 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 },
   userInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
-  username: { color: Colors.text, fontWeight: '600', fontSize: 14 },
+  
+  // ✅ NEW STYLE: To align name and badge horizontally
+  nameRow: { 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+  }, 
+  
+  username: { 
+      color: Colors.text, 
+      fontWeight: '600', 
+      fontSize: 14,
+      marginRight: 4, // Space between name and badge
+  },
+  
+  // ✅ NEW STYLE: Badge position
+  verifiedIcon: {
+      marginBottom: 0, 
+  },
+
   location: { color: Colors.textSecondary, fontSize: 11 },
   textContent: { color: Colors.text, fontSize: 15, paddingHorizontal: 12, marginBottom: 8, lineHeight: 20 },
   mediaContainer: { height: width * 1.25, width: width, backgroundColor: '#111' },
