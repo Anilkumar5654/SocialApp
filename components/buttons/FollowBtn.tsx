@@ -7,10 +7,19 @@ import { api } from '@/services/api';
 interface FollowBtnProps {
   userId: string;
   isFollowing: boolean;
+  // 🌟 FIX 1: New Prop added from API 
+  isFollowedByViewer: boolean; 
   style?: any;
 }
 
-export default function FollowBtn({ userId, isFollowing: initialStatus, style }: FollowBtnProps) {
+export default function FollowBtn({ 
+    userId, 
+    isFollowing: initialStatus, 
+    // 🌟 FIX 1: Destructure the new prop
+    isFollowedByViewer, 
+    style 
+}: FollowBtnProps) {
+  
   const [isFollowing, setIsFollowing] = useState(initialStatus);
 
   const followMutation = useMutation({
@@ -24,6 +33,20 @@ export default function FollowBtn({ userId, isFollowing: initialStatus, style }:
       setIsFollowing(!isFollowing);
     }
   });
+
+  // 🌟 FIX 2: Logic to determine button text
+  const getButtonText = () => {
+    if (isFollowing) {
+      return 'Following';
+    }
+    
+    // Check for "Follow Back" only if the current user is NOT following (isFollowing is false)
+    if (isFollowedByViewer) {
+      return 'Follow Back';
+    }
+    
+    return 'Follow';
+  };
 
   return (
     <TouchableOpacity
@@ -39,7 +62,8 @@ export default function FollowBtn({ userId, isFollowing: initialStatus, style }:
          <ActivityIndicator size="small" color={isFollowing ? Colors.text : '#fff'} />
       ) : (
         <Text style={[styles.text, isFollowing && styles.followingText]}>
-          {isFollowing ? 'Following' : 'Follow'}
+          {/* 🌟 FIX 2: Use the new function to set text */}
+          {getButtonText()}
         </Text>
       )}
     </TouchableOpacity>
