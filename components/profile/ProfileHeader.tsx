@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { Settings, BarChart3, Edit, MessageSquare } from 'lucide-react-native';
+import { Settings, BarChart3, Edit, MessageSquare, CheckCircle } from 'lucide-react-native'; // CheckCircle imported
 
 import Colors from '@/constants/colors'; 
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,8 +23,9 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
     const { user: authUser, isAuthenticated } = useAuth();
     
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
+    const isVerified = profileUser?.is_verified; // Check if user is verified
 
-    // ✅ Fallback Set: Using custom assets (Check getMediaUri if these paths fail)
+    // ✅ Fallback Set: Using custom assets
     const avatarUri = profileUser?.avatar 
         ? getMediaUri(profileUser.avatar) 
         : getMediaUri('assets/profile.jpg');
@@ -64,10 +65,22 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
             <View style={styles.detailsContainer}>
                 
                 {/* Name and Handle (Using Real Data) */}
-                <Text style={styles.channelName} numberOfLines={1}>
-                    {/* ✅ Full Name Logic: full_name or username (Data source needs verification if full_name is missing) */}
-                    {profileUser?.full_name || profileUser?.username} 
-                </Text>
+                <View style={styles.nameRow}>
+                    <Text style={styles.channelName} numberOfLines={1}>
+                        {/* ✅ Name Fix: Using 'name' field from API, or username fallback */}
+                        {profileUser?.name || profileUser?.username} 
+                    </Text>
+                    
+                    {/* ✅ Verified Badge */}
+                    {isVerified && (
+                        <CheckCircle 
+                            color={Colors.primary} 
+                            size={20} 
+                            style={styles.verifiedIcon}
+                        />
+                    )}
+                </View>
+
                 <Text style={styles.channelHandle}>
                     {profileUser?.username ? `@${profileUser.username}` : 'Digital Artist & Creative Director'}
                 </Text>
@@ -90,7 +103,6 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 
                 {/* Bio/Description (Centered) */}
                 <Text style={styles.descriptionText} numberOfLines={2}>
-                    {/* ✅ Bio Fallback: "Available" */}
                     {profileUser?.bio || 'Available'}
                 </Text>
 
@@ -128,7 +140,7 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                                 userId={profileUser.id}
                                 isFollowing={profileUser.is_following} 
                                 isFollowedByViewer={profileUser.is_followed_by_viewer} 
-                                style={styles.followButton} // New consistent style
+                                style={styles.followButton} // Consistent style
                             />
                             <TouchableOpacity style={styles.messageButton} onPress={() => router.push('/messages')}>
                                 <Text style={styles.messageButtonText}>Message</Text>
@@ -181,11 +193,20 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         marginTop: 0, 
     },
+    nameRow: { // ✅ Added to wrap Name and Verified Badge
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     channelName: {
         color: Colors.text,
         fontSize: 22, 
         fontWeight: '800', 
         textAlign: 'center',
+    },
+    verifiedIcon: { // Style for the CheckCircle
+        marginLeft: 6,
+        marginTop: 2, 
     },
     channelHandle: {
         color: Colors.textSecondary,
@@ -259,15 +280,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     
-    // Buttons for OTHER USER
+    // Buttons for OTHER USER (Consistent Size and Alignment)
     followButton: { 
         backgroundColor: Colors.primary, 
         paddingVertical: 12,
-        paddingHorizontal: 15, // ✅ Added for size consistency
+        paddingHorizontal: 15, // ✅ Consistent Padding
         borderRadius: 10,
         flex: 1,
-        justifyContent: 'center', // ✅ Added for alignment consistency
-        alignItems: 'center',    // ✅ Added for alignment consistency
+        justifyContent: 'center', 
+        alignItems: 'center',    
     },
     messageButton: { 
         backgroundColor: '#333333',
