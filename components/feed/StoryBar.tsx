@@ -11,20 +11,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 import { api } from '@/services/api'; 
 
-// --- START: NEW INTERFACE DEFINITIONS (Expected from Grouping Logic) ---
+// --- INTERFACE DEFINITIONS ---
 interface StoryGroup {
   user_id: string;
   username: string;
   avatar: string;
   stories: any[];
-  hasUnviewed: boolean; // TRUE if at least one story in the group is unviewed
+  hasUnviewed: boolean;
 }
-
-// --- END: NEW INTERFACE DEFINITIONS ---
 
 export default function StoryBar() {
   const { user } = useAuth();
-  const currentUserId = user?.id;
+  // FIX 1: Convert currentUserId to string for accurate comparison with API data
+  const currentUserId = String(user?.id); 
 
   const { data, isLoading } = useQuery({
     queryKey: ['stories-feed'],
@@ -36,16 +35,16 @@ export default function StoryBar() {
 
   const allStories = data?.stories || [];
 
-  // 1. & 2. FIX: Grouping, Sorting, and Unwatched Status Calculation
+  // Grouping, Sorting, and Unwatched Status Calculation
   const groupedStories: StoryGroup[] = useMemo(() => {
     const groups: { [key: string]: StoryGroup } = {};
     let currentUserStories: any[] = [];
     
     // Group all stories by user_id
     allStories.forEach((story: any) => {
-      const uid = story.user_id;
+      const uid = String(story.user_id); // FIX 2: Convert API user_id to string
 
-      // Filter: Handle Current User Stories (Which should technically be empty due to API filter, but good for self-checking)
+      // Filter: Handle Current User Stories (if any)
       if (uid === currentUserId) {
           currentUserStories.push(story);
           return; 
@@ -70,38 +69,36 @@ export default function StoryBar() {
       }
     });
 
-    // Convert to array and sort: Unwatched first, then by creation date
+    // Convert to array and sort: Unwatched first
     const finalGroups = Object.values(groups);
 
     finalGroups.sort((a, b) => {
-      // 2. Watched/Unwatched Sorting Fix
-      if (a.hasUnviewed && !b.hasUnviewed) return -1; // Unwatched (TRUE) comes first
-      if (!a.hasUnviewed && b.hasUnviewed) return 1;  // Watched (FALSE) comes later
+      // Watched/Unwatched Sorting Fix
+      if (a.hasUnviewed && !b.hasUnviewed) return -1; 
+      if (!a.hasUnviewed && b.hasUnviewed) return 1;  
       // Secondary sorting: by the creation date of the newest story in the group
       return new Date(b.stories[0].created_at).getTime() - new Date(a.stories[0].created_at).getTime(); 
     });
 
-    // 5. FIX: Your own stories are added as the first item
+    // FIX 3: Your own stories are added as the first item
     if (currentUserStories.length > 0) {
-        // Create a fake group for the current user's active stories
         const userGroup: StoryGroup = {
             user_id: currentUserId,
-            username: 'Your Story',
+            username: user?.username || 'Your Story', // Use actual username if available
             avatar: user?.avatar || '',
             stories: currentUserStories,
-            // If you filtered your own stories in API, you must fetch them separately
-            // Assuming your stories are NOT filtered by API for now.
             hasUnviewed: currentUserStories.some(s => !s.is_viewed) 
         };
         finalGroups.unshift(userGroup);
     }
     
     return finalGroups;
-  }, [allStories, currentUserId, user?.avatar]);
+  }, [allStories, currentUserId, user?.avatar, user?.username]);
 
 
-  // 2. & 5. FIX: Handle Story Creation (if no stories) or Viewing (if stories exist)
+  // Handle Story Creation (if no stories) or Viewing (if stories exist)
   const handleMyStoryPress = () => {
+      // Find the user's own story group
       const myStoryGroup = groupedStories.find(g => g.user_id === currentUserId);
       
       if (myStoryGroup && myStoryGroup.stories.length > 0) {
@@ -116,11 +113,11 @@ export default function StoryBar() {
       }
   };
 
-  // 1. FIX: Handle Press on a specific story group
+  // Handle Press on a specific story group
   const handleStoryGroupPress = (group: StoryGroup) => {
     router.push({
       pathname: '/stories/view',
-      params: { userId: group.user_id } // Group ka pehla item nahi, User ID bhejo
+      params: { userId: group.user_id } 
     });
   };
 
@@ -130,14 +127,14 @@ export default function StoryBar() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         
         {/* 1. My Story (Create/View Button) */}
-        {/* 5. FIX: Show Your Story icon based on actual data */}
+        {/* FIX: Ensure 'Your Story' is always the first item */}
         <TouchableOpacity style={styles.storyItem} onPress={handleMyStoryPress}>
           <View style={styles.avatarWrapper}>
             <Image 
               source={{ uri: getMediaUri(user?.avatar) || 'https://via.placeholder.com/100' }} 
               style={styles.myAvatar} 
             />
-            {/* If user has no active stories, show the plus icon */}
+            {/* Show plus icon only if the user has NO active stories */}
             {(!groupedStories.find(g => g.user_id === currentUserId) || groupedStories.find(g => g.user_id === currentUserId)?.stories.length === 0) && (
                 <View style={styles.addIcon}>
                   <Plus size={14} color="#fff" strokeWidth={3} />
@@ -145,7 +142,7 @@ export default function StoryBar() {
             )}
             
           </View>
-          <Text style={styles.username} numberOfLines={1}>{groupedStories.find(g => g.user_id === currentUserId) ? user?.username : 'Your Story'}</Text>
+          <Text style={styles.username} numberOfLines={1}>Your Story</Text>
         </TouchableOpacity>
 
         {/* Loading Indicator */}
@@ -153,15 +150,15 @@ export default function StoryBar() {
 
         {/* 2. Real API Stories (Grouped and Sorted) */}
         {groupedStories
-          .filter(group => group.user_id !== currentUserId) // Ensure current user is not repeated
+          .filter(group => group.user_id !== currentUserId) // Filter out the 'Your Story' item which was prepended
           .map((group: StoryGroup) => (
             <TouchableOpacity 
-              key={group.user_id} // Key is now the user_id (unique for the group)
+              key={group.user_id} 
               style={styles.storyItem}
               onPress={() => handleStoryGroupPress(group)}
             >
               <LinearGradient
-                // 2. FIX: Use hasUnviewed for ring color
+                // Watched/Unwatched Ring Logic
                 colors={group.hasUnviewed ? [Colors.primary, '#A020F0'] : ['#333', '#333']}
                 style={styles.ring}
               >
