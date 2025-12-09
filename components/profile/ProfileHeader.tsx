@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { Settings, BarChart3, Edit, MessageSquare } from 'lucide-react-native';
 
 import Colors from '@/constants/colors'; 
-import { useAuth } from '@/contexts/authContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
 import FollowBtn from '@/components/buttons/FollowBtn'; 
