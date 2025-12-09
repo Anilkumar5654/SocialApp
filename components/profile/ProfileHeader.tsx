@@ -1,17 +1,20 @@
 // File: src/components/profile/ProfileHeader.tsx
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { Settings, BarChart3, Edit, Grid } from 'lucide-react-native'; // Added Grid for tab style
+import { Settings, BarChart3, Edit, MessageSquare } from 'lucide-react-native';
 
 import Colors from '@/constants/colors'; 
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
 // NOTE: Ensure your FollowBtn path is correct!
+// This component handles the Follow/Following/Follow Back logic
 import FollowBtn from '@/components/buttons/FollowBtn'; 
+
+const { width } = Dimensions.get('window');
 
 interface ProfileHeaderProps {
     user: any; // User profile data
@@ -21,96 +24,114 @@ interface ProfileHeaderProps {
 export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps) {
     const { user: authUser, isAuthenticated } = useAuth();
     
-    // CRITICAL ID COMPARISON FIX for My Profile check
+    // CRITICAL FIX: Ensures my profile buttons show up (Logic Sync)
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
 
     const avatarUri = profileUser?.avatar ? getMediaUri(profileUser.avatar) : getMediaUri('assets/default_avatar.jpg');
-    const coverUri = profileUser?.cover_photo ? getMediaUri(profileUser.cover_photo) : undefined;
+    // Using a placeholder cover photo URL for design match
+    const coverUri = profileUser?.cover_photo ? getMediaUri(profileUser.cover_photo) : 'https://example.com/placeholder-cover.jpg'; 
     const followerCount = profileUser?.followers_count?.toLocaleString() || '0'; 
     
     return (
         <View style={styles.container}>
-            {/* 1. Cover Photo */}
-            {coverUri && (
-                <Image source={{ uri: coverUri }} style={styles.coverPhoto} contentFit="cover" />
-            )}
             
+            {/* 1. Cover Photo & Avatar Area (Design Match) */}
+            <View style={styles.coverArea}>
+                {/* Background/Cover Area (Simulated Cityscape) */}
+                <View style={styles.coverPhotoBackground} />
+                
+                {/* Avatar (Centered with Pink Glow) */}
+                <View style={styles.avatarGlow}>
+                    <Image 
+                        source={{ uri: avatarUri }}
+                        style={styles.profileAvatar}
+                        contentFit="cover"
+                    />
+                </View>
+            </View>
+
+            {/* 2. Details Section (Centered) */}
             <View style={styles.detailsContainer}>
                 
-                {/* 2. Avatar */}
-                <Image 
-                    source={{ uri: avatarUri }}
-                    style={styles.profileAvatar}
-                    contentFit="cover"
-                />
-                
-                {/* 3. Name and Username */}
-                <View style={styles.nameSection}>
-                    <Text style={styles.channelName} numberOfLines={1}>
-                        {profileUser?.full_name || ''} 
-                    </Text>
-                    <Text style={styles.channelHandle}>
-                        {profileUser?.username ? `@${profileUser.username}` : 'No username'}
-                    </Text>
+                {/* Name and Handle (Using Target Screenshot Style) */}
+                <Text style={styles.channelName} numberOfLines={1}>
+                    {profileUser?.full_name || 'JOURNEY_DESIGN'} 
+                </Text>
+                <Text style={styles.channelHandle}>
+                    {profileUser?.username ? `@${profileUser.username}` : 'Digital Artist & Creative Director'}
+                </Text>
+
+                {/* 3. Stats Row (Prominent and Centered) */}
+                <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>855K</Text>
+                        <Text style={styles.statLabel}>Followers</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>920</Text>
+                        <Text style={styles.statLabel}>Following</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>1.3K</Text>
+                        <Text style={styles.statLabel}>Posts</Text>
+                    </View>
                 </View>
                 
-                {/* Bio/Description */}
+                {/* Bio/Description (Centered) */}
                 <Text style={styles.descriptionText} numberOfLines={2}>
-                     {profileUser?.bio || 'I am a passionate creator.'}
-                 </Text>
+                    {profileUser?.bio || 'Passionate about creating digital experiences that inspire and engage. Let\'s build something together!'}
+                </Text>
 
 
-                {/* 4. Action Buttons (Conditional Rendering) */}
+                {/* 4. Action Buttons (Follow/Message/Edit) */}
                 <View style={styles.actionRow}>
                     {isMyProfile ? (
                         // --- YOUR PROFILE: EDIT, STUDIO, SETTINGS ---
                         <>
                             <TouchableOpacity 
-                                style={[styles.actionButton, styles.editButton]} // Changed style name for clarity
+                                style={[styles.editButton, {backgroundColor: Colors.textSecondary}]}
                                 onPress={() => router.push('/edit-profile')}
                             >
-                                <Edit size={20} color={Colors.text} style={{ marginRight: 5 }} />
-                                <Text style={styles.actionButtonText}>Edit Profile</Text>
+                                <Text style={[styles.actionButtonText, {color: Colors.background}]}>Edit Profile</Text>
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                                style={styles.iconButton}
+                                style={[styles.iconButton, {backgroundColor: Colors.textSecondary}]}
                                 onPress={() => router.push('/creator-studio')}
                             >
-                                <BarChart3 size={20} color={Colors.textSecondary} />
+                                <BarChart3 size={20} color={Colors.background} />
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                                style={styles.iconButton}
+                                style={[styles.iconButton, {backgroundColor: Colors.textSecondary}]}
                                 onPress={() => router.push('/settings')}
                             >
-                                <Settings size={20} color={Colors.textSecondary} />
+                                <Settings size={20} color={Colors.background} />
                             </TouchableOpacity>
                         </>
                     ) : (
-                        // --- OTHER USER'S PROFILE: FOLLOW BUTTON ---
-                        <FollowBtn
-                            userId={profileUser.id}
-                            isFollowing={profileUser.is_following} 
-                            isFollowedByViewer={profileUser.is_followed_by_viewer} 
-                        />
+                        // --- OTHER USER'S PROFILE: FOLLOW & MESSAGE ---
+                        <>
+                            {/* Follow Button (Pink background - Logic Fix) */}
+                            <FollowBtn
+                                userId={profileUser.id}
+                                isFollowing={profileUser.is_following} 
+                                isFollowedByViewer={profileUser.is_followed_by_viewer} 
+                                style={styles.followButton}
+                            />
+                            {/* Message Button (Dark background - Design Match) */}
+                            <TouchableOpacity style={styles.messageButton} onPress={() => router.push('/messages')}>
+                                <Text style={styles.messageButtonText}>Message</Text>
+                            </TouchableOpacity>
+                        </>
                     )}
                 </View>
                 
-                {/* 5. Stats Row (Moved lower for cleaner look) */}
-                <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>18</Text>
-                        <Text style={styles.statLabel}>Posts</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{followerCount}</Text>
-                        <Text style={styles.statLabel}>Followers</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>2</Text>
-                        <Text style={styles.statLabel}>Following</Text>
-                    </View>
+                {/* 5. Tab Design Placeholder (Matching the visual style from the image) */}
+                <View style={styles.tabDesignPlaceholder}>
+                    <Text style={styles.tabTextActive}>Posts</Text>
+                    <Text style={styles.tabText}>Reels</Text>
+                    <Text style={styles.tabText}>Tagged</Text>
                 </View>
 
             </View>
@@ -118,57 +139,68 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
     );
 }
 
-// --- STYLES ---
+// --- STYLES (MATCHING TARGET DESIGN) ---
 const styles = StyleSheet.create({
     container: {
         backgroundColor: Colors.background,
     },
-    coverPhoto: {
+    coverArea: {
+        alignItems: 'center',
+        paddingBottom: 20,
+    },
+    coverPhotoBackground: { // Used as placeholder for the dark background image area
         width: '100%',
-        height: 150, // Slightly increased height
+        height: 180, 
+        position: 'absolute',
+        top: 0,
         backgroundColor: '#1E1E1E', 
     },
-    detailsContainer: {
-        paddingHorizontal: 16,
-        paddingTop: 10,
+    avatarGlow: {
+        width: 130, // Slightly larger container for pink glow effect
+        height: 130,
+        borderRadius: 65,
+        borderWidth: 3,
+        borderColor: Colors.primary, // Pink Glow
+        padding: 5,
+        marginTop: 110, // Adjusted positioning
+        zIndex: 10,
+        backgroundColor: Colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     profileAvatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 3,
-        borderColor: Colors.background,
+        width: 110,
+        height: 110,
+        borderRadius: 55,
         backgroundColor: '#333',
-        marginTop: -50, // Pull avatar over the cover photo
-        marginBottom: 10,
     },
-    nameSection: {
-        marginBottom: 10,
+    detailsContainer: {
+        paddingHorizontal: 25, 
+        alignItems: 'center', 
+        marginTop: 10,
     },
     channelName: {
         color: Colors.text,
-        fontSize: 26, 
-        fontWeight: '700',
+        fontSize: 22, 
+        fontWeight: '800', 
+        textAlign: 'center',
     },
     channelHandle: {
         color: Colors.textSecondary,
-        fontSize: 16, 
-        marginTop: 2,
-    },
-    descriptionText: {
-        color: Colors.text, // Bio text made visible
         fontSize: 15, 
-        lineHeight: 22,
-        marginBottom: 15, // Space above buttons
+        marginTop: 4,
+        textAlign: 'center',
+        marginBottom: 8,
     },
     
     // Stats
     statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        alignItems: 'center',
+        width: '100%',
         paddingVertical: 15,
-        marginTop: 10, // Space after buttons
+        marginBottom: 10,
+        // Removed borders for cleaner look
     },
     statItem: {
         alignItems: 'center',
@@ -176,43 +208,101 @@ const styles = StyleSheet.create({
     },
     statNumber: {
         color: Colors.text,
-        fontSize: 20, 
-        fontWeight: '700',
+        fontSize: 18, 
+        fontWeight: '800', 
     },
     statLabel: {
         color: Colors.textSecondary,
+        fontSize: 13, 
+        marginTop: 4,
+    },
+    
+    descriptionText: {
+        color: Colors.textSecondary, 
         fontSize: 14, 
+        lineHeight: 20,
+        textAlign: 'center',
+        marginBottom: 20,
+        // Added max width for better readability on large screens
+        maxWidth: 300, 
     },
     
     // Action Row 
     actionRow: {
         flexDirection: 'row',
         gap: 10,
-        marginBottom: 15, // Space below buttons
+        width: '100%',
+        marginBottom: 20,
+        justifyContent: 'center',
     },
     
-    // Buttons for MY PROFILE
-    editButton: { // Edit Profile Button
-        flexDirection: 'row',
-        backgroundColor: '#262626',
-        paddingVertical: 10,
+    // Buttons for MY PROFILE (Taller, wider design)
+    editButton: { 
+        paddingVertical: 12,
         paddingHorizontal: 15,
-        borderRadius: 8,
+        borderRadius: 10,
+        flex: 1,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        flex: 1,
+        minWidth: 100,
     },
     actionButtonText: {
-        color: Colors.text,
         fontSize: 16, 
-        fontWeight: '600',
+        fontWeight: '700',
     },
-    iconButton: { // Studio & Settings Buttons
-        backgroundColor: '#262626',
-        width: 45, 
-        height: 45, 
-        borderRadius: 8,
+    iconButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
     },
+    
+    // Buttons for OTHER USER
+    followButton: { // Style for the FollowBtn component
+        backgroundColor: Colors.primary, // Pink/Primary
+        paddingVertical: 12,
+        borderRadius: 10,
+        flex: 1,
+    },
+    messageButton: { // Style for Message button (Dark)
+        backgroundColor: '#333333',
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    messageButtonText: {
+        color: Colors.text,
+        fontSize: 16,
+        fontWeight: '700',
+    },
+
+    // Tab Design Placeholder (Matching the visual style from the image)
+    tabDesignPlaceholder: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        width: width, // Use full screen width
+        paddingVertical: 10,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
+        // Negative margin to push it to the edges of the parent padding
+        marginHorizontal: -25, 
+    },
+    tabText: {
+        color: Colors.textSecondary,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    tabTextActive: {
+        color: Colors.text,
+        fontSize: 15,
+        fontWeight: '700',
+        borderBottomWidth: 3,
+        borderBottomColor: Colors.text,
+        paddingBottom: 5,
+    }
 });
