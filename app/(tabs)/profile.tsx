@@ -4,16 +4,15 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Grid } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { Grid } from 'lucide-react-native'; // Keeping Grid icon only for the Posts tab content
 
 import Colors from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authContext';
 import { api } from '@/services/api';
 import { getMediaUri } from '@/utils/media';
 
-// Import Component
 import ProfileHeader from '@/components/profile/ProfileHeader';
 
 const { width } = Dimensions.get('window');
@@ -23,6 +22,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuth();
   
+  // Active tab state can stay for future expansion, but UI only shows 'Posts'
   const [activeTab, setActiveTab] = useState<'posts'>('posts');
 
   const { data: postsData, isLoading } = useQuery({
@@ -49,14 +49,16 @@ export default function ProfileScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         
-        {/* 1. Reusable Header Component - Gets the current user from useAuth */}
+        {/* 1. Header Component */}
         <ProfileHeader user={user} />
 
-        {/* 2. Tabs */}
+        {/* 2. Tabs Section (Only Posts Tab - Design Match) */}
         <View style={styles.tabs}>
             <TouchableOpacity style={[styles.tab, styles.tabActive]}>
-                <Grid color={Colors.primary} size={22} />
+                {/* 🎯 FIX: Removed the Grid icon that was previously below the text */}
+                <Text style={styles.tabText}>Posts</Text> 
             </TouchableOpacity>
+            {/* 🎯 FIX: Removed Reels and Tagged tabs */}
         </View>
 
         {/* 3. Grid Content */}
@@ -67,7 +69,13 @@ export default function ProfileScreen() {
                 data={posts}
                 keyExtractor={item => item.id.toString()}
                 numColumns={3}
-                scrollEnabled={false} // Kyunki parent ScrollView hai
+                scrollEnabled={false} 
+                ListHeaderComponent={
+                    <View style={styles.contentGridIcon}>
+                        {/* 🎯 FIX: Keeping a single Grid icon above the posts content */}
+                        <Grid color={Colors.text} size={22} />
+                    </View>
+                }
                 renderItem={({ item }) => {
                     const uri = item.images?.[0] ? getMediaUri(item.images[0]) : getMediaUri(item.thumbnail_url);
                     return (
@@ -98,9 +106,16 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: Colors.primary, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8 },
   btnText: { color: Colors.text, fontWeight: '600' },
   
-  tabs: { borderBottomWidth: 1, borderColor: Colors.border, flexDirection: 'row' },
-  tab: { flex: 1, padding: 16, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderColor: Colors.primary },
+  // Tab Styles (Simplified for single Posts tab)
+  tabs: { borderBottomWidth: 1, borderColor: Colors.border, flexDirection: 'row', justifyContent: 'center' },
+  tab: { paddingHorizontal: 40, paddingVertical: 12, alignItems: 'center' },
+  tabText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  tabActive: { borderBottomWidth: 3, borderColor: Colors.primary },
+  
+  contentGridIcon: {
+      alignItems: 'center',
+      paddingVertical: 15,
+  },
   
   gridItem: { width: GRID_SIZE, height: GRID_SIZE, margin: 0.5, backgroundColor: '#1A1A1A' },
   gridImg: { width: '100%', height: '100%' },
