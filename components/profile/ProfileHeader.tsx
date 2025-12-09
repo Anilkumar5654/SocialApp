@@ -24,7 +24,7 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
     
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
 
-    // ✅ Fallback Set: Using custom assets
+    // ✅ Fallback Set: Using custom assets (Check getMediaUri if these paths fail)
     const avatarUri = profileUser?.avatar 
         ? getMediaUri(profileUser.avatar) 
         : getMediaUri('assets/profile.jpg');
@@ -65,7 +65,7 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 
                 {/* Name and Handle (Using Real Data) */}
                 <Text style={styles.channelName} numberOfLines={1}>
-                    {/* ✅ Full Name Logic: full_name or username */}
+                    {/* ✅ Full Name Logic: full_name or username (Data source needs verification if full_name is missing) */}
                     {profileUser?.full_name || profileUser?.username} 
                 </Text>
                 <Text style={styles.channelHandle}>
@@ -128,7 +128,7 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                                 userId={profileUser.id}
                                 isFollowing={profileUser.is_following} 
                                 isFollowedByViewer={profileUser.is_followed_by_viewer} 
-                                style={styles.followButton}
+                                style={styles.followButton} // New consistent style
                             />
                             <TouchableOpacity style={styles.messageButton} onPress={() => router.push('/messages')}>
                                 <Text style={styles.messageButtonText}>Message</Text>
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
     },
     coverArea: {
         alignItems: 'center',
-        paddingBottom: 10, // ✅ Gap Reduced (from 20 to 10)
+        paddingBottom: 10, 
     },
-    coverPhoto: { // New style for rendering the Image
+    coverPhoto: { 
         width: '100%',
         height: 180, 
         position: 'absolute',
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     detailsContainer: {
         paddingHorizontal: 25, 
         alignItems: 'center', 
-        marginTop: 0, // ✅ Gap Reduced (from 10 to 0)
+        marginTop: 0, 
     },
     channelName: {
         color: Colors.text,
@@ -263,8 +263,11 @@ const styles = StyleSheet.create({
     followButton: { 
         backgroundColor: Colors.primary, 
         paddingVertical: 12,
+        paddingHorizontal: 15, // ✅ Added for size consistency
         borderRadius: 10,
         flex: 1,
+        justifyContent: 'center', // ✅ Added for alignment consistency
+        alignItems: 'center',    // ✅ Added for alignment consistency
     },
     messageButton: { 
         backgroundColor: '#333333',
