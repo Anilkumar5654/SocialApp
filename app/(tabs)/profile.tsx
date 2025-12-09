@@ -1,3 +1,5 @@
+// File: app/(tabs)/profile/index.tsx
+
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -23,9 +25,6 @@ export default function ProfileScreen() {
   
   const [activeTab, setActiveTab] = useState<'posts'>('posts');
 
-  // NOTE: You might need to adjust this API call if your main profile screen requires
-  // a specific API endpoint to fetch detailed user stats (like followers_count etc.)
-  // and not just posts. We rely on the `user` object from `useAuth` for most data.
   const { data: postsData, isLoading } = useQuery({
     queryKey: ['user-posts', user?.id],
     queryFn: async () => user?.id ? api.users.getPosts(user.id) : { posts: [] },
@@ -50,9 +49,7 @@ export default function ProfileScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         
-        {/* 1. Reusable Header Component */}
-        {/* 🎯 FIX: ProfileHeader now receives the current user object containing all necessary data 
-           (like id, username, and possibly stats fetched via auth context or combined API call) */}
+        {/* 1. Reusable Header Component - Gets the current user from useAuth */}
         <ProfileHeader user={user} />
 
         {/* 2. Tabs */}
