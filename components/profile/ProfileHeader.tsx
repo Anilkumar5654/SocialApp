@@ -24,11 +24,16 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
     
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
 
-    const avatarUri = profileUser?.avatar ? getMediaUri(profileUser.avatar) : getMediaUri('assets/default_avatar.jpg');
-    // Using a placeholder cover photo URL for design match
-    const coverUri = profileUser?.cover_photo ? getMediaUri(profileUser.cover_photo) : 'https://example.com/placeholder-cover.jpg'; 
+    // ✅ Fallback Set: Using custom assets
+    const avatarUri = profileUser?.avatar 
+        ? getMediaUri(profileUser.avatar) 
+        : getMediaUri('assets/profile.jpg');
     
-    // 🎯 REAL DATA FIXES: Use actual data or format it if needed
+    const coverUri = profileUser?.cover_photo 
+        ? getMediaUri(profileUser.cover_photo) 
+        : getMediaUri('assets/p_cover.jpg'); 
+    
+    // 🎯 REAL DATA FIXES
     const followerCount = profileUser?.followers_count?.toLocaleString() || '0'; 
     const followingCount = profileUser?.following_count?.toLocaleString() || '0';
     const postsCount = profileUser?.posts_count?.toLocaleString() || '0';
@@ -38,7 +43,13 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
             
             {/* 1. Cover Photo & Avatar Area */}
             <View style={styles.coverArea}>
-                <View style={styles.coverPhotoBackground} />
+                
+                {/* ✅ Render Cover Photo */}
+                <Image 
+                    source={{ uri: coverUri }}
+                    style={styles.coverPhoto}
+                    contentFit="cover"
+                />
                 
                 <View style={styles.avatarGlow}>
                     <Image 
@@ -54,7 +65,8 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 
                 {/* Name and Handle (Using Real Data) */}
                 <Text style={styles.channelName} numberOfLines={1}>
-                    {profileUser?.full_name || authUser?.username || 'Anuj'} 
+                    {/* ✅ Full Name Logic: full_name or username */}
+                    {profileUser?.full_name || profileUser?.username} 
                 </Text>
                 <Text style={styles.channelHandle}>
                     {profileUser?.username ? `@${profileUser.username}` : 'Digital Artist & Creative Director'}
@@ -63,17 +75,14 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 {/* 3. Stats Row (Prominent and Centered) */}
                 <View style={styles.statsRow}>
                     <View style={styles.statItem}>
-                        {/* Real Data */}
                         <Text style={styles.statNumber}>{followerCount}</Text>
                         <Text style={styles.statLabel}>Followers</Text>
                     </View>
                     <View style={styles.statItem}>
-                        {/* Real Data */}
                         <Text style={styles.statNumber}>{followingCount}</Text>
                         <Text style={styles.statLabel}>Following</Text>
                     </View>
                     <View style={styles.statItem}>
-                        {/* Real Data */}
                         <Text style={styles.statNumber}>{postsCount}</Text>
                         <Text style={styles.statLabel}>Posts</Text>
                     </View>
@@ -81,7 +90,8 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 
                 {/* Bio/Description (Centered) */}
                 <Text style={styles.descriptionText} numberOfLines={2}>
-                    {profileUser?.bio || 'Hello 👋'}
+                    {/* ✅ Bio Fallback: "Available" */}
+                    {profileUser?.bio || 'Available'}
                 </Text>
 
 
@@ -138,9 +148,9 @@ const styles = StyleSheet.create({
     },
     coverArea: {
         alignItems: 'center',
-        paddingBottom: 20,
+        paddingBottom: 10, // ✅ Gap Reduced (from 20 to 10)
     },
-    coverPhotoBackground: { 
+    coverPhoto: { // New style for rendering the Image
         width: '100%',
         height: 180, 
         position: 'absolute',
@@ -169,7 +179,7 @@ const styles = StyleSheet.create({
     detailsContainer: {
         paddingHorizontal: 25, 
         alignItems: 'center', 
-        marginTop: 10,
+        marginTop: 0, // ✅ Gap Reduced (from 10 to 0)
     },
     channelName: {
         color: Colors.text,
