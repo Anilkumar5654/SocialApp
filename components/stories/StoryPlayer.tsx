@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Animated, ActivityIndicator, KeyboardAvoidingView, PanResponder, StatusBar, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
-import { router, Stack } from 'expo-router'; // Stack import kiya gaya
+import { router, Stack } from 'expo-router'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Heart, Send, Trash2, Eye } from 'lucide-react-native';
@@ -57,8 +57,6 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     const map = new Map();
     storiesData.stories.forEach((story: any) => {
       const uid = story.user?.id || story.user_id;
-      // Filter out own stories for the main list if needed, 
-      // but API filter is now in place. We group the received stories.
       if (!map.has(uid)) { map.set(uid, { userId: uid, user: story.user, stories: [] }); groups.push(map.get(uid)); }
       map.get(uid).stories.push(story);
     });
@@ -107,10 +105,25 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   const closeViewer = () => router.back();
 
   const advanceStory = useCallback(() => {
-    progressAnim.setValue(0); setIsLoaded(false);
-    if (currentStoryIndex < currentGroup.stories.length - 1) setCurrentStoryIndex(prev => prev + 1);
-    else if (activeUserIndex < storyGroups.length - 1) { setActiveUserIndex(prev => prev + 1); setCurrentStoryIndex(0); }
-    else closeViewer();
+    // FIX: Add safety check for crash
+    if (storyGroups.length === 0 || !currentGroup) {
+        closeViewer();
+        return;
+    }
+
+    progressAnim.setValue(0); 
+    setIsLoaded(false);
+    
+    if (currentStoryIndex < currentGroup.stories.length - 1) {
+        setCurrentStoryIndex(prev => prev + 1);
+    }
+    else if (activeUserIndex < storyGroups.length - 1) { 
+        setActiveUserIndex(prev => prev + 1); 
+        setCurrentStoryIndex(0); 
+    }
+    else {
+        closeViewer();
+    }
   }, [currentStoryIndex, currentGroup, activeUserIndex, storyGroups, closeViewer, progressAnim]);
 
   const previousStory = () => {
@@ -158,18 +171,28 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
 
   const getUrl = (path: string) => path?.startsWith('http') ? path : `${MEDIA_BASE_URL}/${path}`;
   
-  // FIX: Assuming this is the endpoint used for text replies/DMs
   const handleReplySend = async () => {
     if (!message.trim() || !currentStory) return;
     try {
-        // NOTE: If you have a separate API like api.messages.sendDM, use that.
-        // Using react endpoint for simple reply tracking if no separate DM API exists.
         await api.stories.react(currentStory.id, message.trim()); 
         setMessage('');
         toast.show('Message sent!', 'success');
     } catch (error: any) {
         toast.show(`Failed to send message: ${error.message}`, 'error');
     }
+  };
+  
+  // 🌟 NEW: Function to handle navigation to the user's profile
+  const handleProfileTap = () => {
+    if (!currentGroup?.user?.id) return;
+    // 1. Pause the story timer/video
+    setIsPaused(true); 
+    
+    // 2. Navigate to the user's profile
+    router.push({
+      pathname: '/users/[userId]', // Assuming your profile route
+      params: { userId: currentGroup.user.id }
+    });
   };
 
   if (isLoading || !currentStory) return <View style={styles.container}><ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 100 }} /></View>;
@@ -193,7 +216,6 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
         </View>
 
         {!isPaused && !alertConfig.visible && !showViewers && (
-            // FIX: PaddingTop ensures content starts below status bar
             <View style={[styles.overlay, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 10 }]}> 
                 {/* Header (Progress, User Info, Close Button) */}
                 <View style={styles.topSection}>
@@ -207,14 +229,16 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                         ))}
                     </View>
                     <View style={styles.headerRow}>
-                        {/* FIX: UserInfo is correctly positioned at the top */}
-                        <View style={styles.userInfo}>
+                        
+                        {/* 🌟 FIX: Profile Navigation added here 🌟 */}
+                        <TouchableOpacity style={styles.userInfo} onPress={handleProfileTap}>
                             <Image source={{ uri: getUrl(currentGroup.user?.avatar) }} style={styles.avatar} />
                             <View>
                                 <Text style={styles.username}>{currentGroup.user?.username}</Text>
                                 <Text style={styles.timeAgo}>{formatTimeAgo(currentStory.created_at)}</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
+                        
                         <View style={styles.headerRight}>
                             {isOwnStory && <TouchableOpacity onPress={() => { setIsPaused(true);
                             setAlertConfig({ visible: true, title: 'Delete', message: 'Delete this story?', confirmText: 'Delete', isDestructive: true, onConfirm: () => deleteMutation.mutate(currentStory.id), onCancel: () => { setAlertConfig({ visible: false }); setIsPaused(false); } }) }}><Trash2 color="#fff" size={20} /></TouchableOpacity>}
