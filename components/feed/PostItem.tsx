@@ -11,6 +11,7 @@ import { api } from '@/services/api';
 import { Post } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
+import { useToast } from '@/contexts/ToastContext'; // 👈 Import useToast
 
 // 👇 Smart Buttons (Clean & Reusable)
 import LikeBtn from '@/components/buttons/LikeBtn';
@@ -31,6 +32,7 @@ interface PostItemProps {
 
 export default function PostItem({ post }: PostItemProps) {
   const { user: currentUser } = useAuth();
+  const toast = useToast(); // 👈 Initialize toast
   
   // Modal States
   const [showComments, setShowComments] = useState(false);
@@ -42,7 +44,8 @@ export default function PostItem({ post }: PostItemProps) {
   // Delete Mutation
   const deleteMutation = useMutation({
     mutationFn: () => api.posts.delete(post.id),
-    onSuccess: () => Alert.alert('Success', 'Post deleted')
+    // 🌟 FIX: Use toast instead of Alert.alert for theme consistency
+    onSuccess: () => toast.show('Post deleted successfully.', 'success') 
   });
 
   return (
@@ -51,6 +54,7 @@ export default function PostItem({ post }: PostItemProps) {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.userInfo} 
+          // 🗺️ Routing: /user/[userId] (Consistent)
           onPress={() => router.push({ pathname: '/user/[userId]', params: { userId: post.user.id } })}
         >
           <Image source={{ uri: getMediaUri(post.user.avatar) }} style={styles.avatar} />
