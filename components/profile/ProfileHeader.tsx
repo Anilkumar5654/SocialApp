@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { useAuth } from '@/contexts/authContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 import Colors from '@/constants/colors';
 import { router } from 'expo-router'; 
