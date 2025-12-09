@@ -1,14 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 import Colors from '@/constants/colors';
+import { router } from 'expo-router'; // router is needed for navigation
 
-// Ensure you have imported FollowBtn
+// ✅ Corrected FollowBtn Import
 import FollowBtn from '@/components/buttons/FollowBtn'; 
-// Ensure you have imported EditProfileBtn if needed
-import EditProfileBtn from '@/components/profile/EditProfileBtn'; 
+// EditProfileBtn component is replaced by direct navigation logic
 
 interface UserProfile {
     id: string;
@@ -22,10 +22,8 @@ interface UserProfile {
     posts_count: number;
     is_following: boolean;
     is_current_user: boolean;
-    // 🌟 New field expected from API 🌟
     is_followed_by_viewer: boolean; 
     is_private: boolean;
-    // ... add other necessary fields
 }
 
 interface ProfileHeaderProps {
@@ -38,16 +36,21 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
 
     const renderActionButton = () => {
         if (isCurrentUser) {
-            // If it's the current user's profile, show the Edit button
-            return <EditProfileBtn />; 
+            // 🎯 FINAL FIX: Correct navigation path confirmed as '/edit-profile'
+            return (
+                <TouchableOpacity 
+                    style={[styles.btn, styles.editBtn]}
+                    onPress={() => router.push('/edit-profile')} 
+                >
+                    <Text style={[styles.text, styles.editText]}>Edit Profile</Text>
+                </TouchableOpacity>
+            ); 
         }
 
-        // If it's another user, show the Follow button
         return (
             <FollowBtn
                 userId={user.id}
                 isFollowing={user.is_following}
-                // 🎯 FINAL FIX: Pass the 'Follow Back' status to the button
                 isFollowedByViewer={user.is_followed_by_viewer} 
             />
         );
@@ -55,32 +58,26 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
 
     return (
         <View style={styles.container}>
-            {/* Cover Photo - Optional */}
             {user.cover_photo && (
                 <Image source={{ uri: getMediaUri(user.cover_photo) }} style={styles.coverPhoto} contentFit="cover" />
             )}
             
             <View style={styles.detailsContainer}>
-                {/* Avatar */}
                 <Image source={{ uri: getMediaUri(user.avatar) }} style={styles.avatar} contentFit="cover" />
 
-                {/* Name and Username */}
                 <Text style={styles.name}>{user.name}</Text>
                 <Text style={styles.username}>@{user.username}</Text>
 
-                {/* Bio */}
                 {user.bio ? (
                     <Text style={styles.bio}>{user.bio}</Text>
                 ) : (
                     !isCurrentUser && <Text style={styles.bioPlaceholder}>No bio yet.</Text>
                 )}
 
-                {/* Action Button (Follow/Edit) */}
                 <View style={styles.actionButtonContainer}>
                     {renderActionButton()}
                 </View>
 
-                {/* Stats (Followers/Following/Posts) */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statItem}>
                         <Text style={styles.statNumber}>{user.posts_count}</Text>
@@ -96,7 +93,6 @@ export default function ProfileHeader({ user }: ProfileHeaderProps) {
                     </View>
                 </View>
 
-                {/* Privacy Message */}
                 {user.is_private && !user.is_following && !isCurrentUser && (
                     <Text style={styles.privateMessage}>This account is private.</Text>
                 )}
@@ -117,7 +113,7 @@ const styles = StyleSheet.create({
     },
     detailsContainer: {
         paddingHorizontal: 20,
-        marginTop: -30, // Pulls details over the cover photo area
+        marginTop: -30, 
     },
     avatar: {
         width: 80,
@@ -180,5 +176,26 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 15,
         fontWeight: '600',
+    },
+    // Styles for Edit Profile button
+    btn: {
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 80,
+    },
+    editBtn: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    text: {
+        fontWeight: '600',
+        fontSize: 13,
+    },
+    editText: {
+        color: Colors.text,
     }
 });
