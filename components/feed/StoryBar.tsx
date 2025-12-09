@@ -4,7 +4,8 @@ import { Image } from 'expo-image';
 import { Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router'; 
-import { useQuery } from '@tanstack/react-query'; 
+// 👇 Import useQueryClient
+import { useQuery, useQueryClient } from '@tanstack/react-query'; 
 
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +23,7 @@ interface StoryGroup {
 
 export default function StoryBar() {
   const { user } = useAuth();
-  // FIX 1: Convert currentUserId to string for accurate comparison with API data
+  const queryClient = useQueryClient(); // 👈 For instant UI updates
   const currentUserId = String(user?.id); 
 
   const { data, isLoading } = useQuery({
@@ -36,21 +37,20 @@ export default function StoryBar() {
   const allStories = data?.stories || [];
 
   // Grouping, Sorting, and Unwatched Status Calculation
-  const groupedStories: StoryGroup[] = useMemo(() => {
+  const { groupedStories, hasMyActiveStories } = useMemo(() => {
     const groups: { [key: string]: StoryGroup } = {};
     let currentUserStories: any[] = [];
-    
-    // Group all stories by user_id
-    allStories.forEach((story: any) => {
-      const uid = String(story.user_id); // FIX 2: Convert API user_id to string
+    let hasActiveStories = false; // Separate flag
 
-      // Filter: Handle Current User Stories (will work now due to string conversion)
+    allStories.forEach((story: any) => {
+      const uid = String(story.user_id);
+
       if (uid === currentUserId) {
           currentUserStories.push(story);
+          hasActiveStories = true; // Set flag if any self-story exists
           return; 
       }
 
-      // Group other users' stories
       if (!groups[uid]) {
         groups[uid] = {
           user_id: uid,
@@ -63,24 +63,20 @@ export default function StoryBar() {
       
       groups[uid].stories.push(story);
       
-      // Determine if the group has *any* unviewed stories
       if (!story.is_viewed) {
         groups[uid].hasUnviewed = true;
       }
     });
 
-    // Convert to array and sort: Unwatched first
     const finalGroups = Object.values(groups);
 
     finalGroups.sort((a, b) => {
-      // Watched/Unwatched Sorting Fix
       if (a.hasUnviewed && !b.hasUnviewed) return -1; 
       if (!a.hasUnviewed && b.hasUnviewed) return 1;  
-      // Secondary sorting: by the creation date of the newest story in the group
       return new Date(b.stories[0].created_at).getTime() - new Date(a.stories[0].created_at).getTime(); 
     });
 
-    // FIX 3: Your own stories are added as the first item
+    // Add 'Your Story' to the front only if it exists
     if (currentUserStories.length > 0) {
         const userGroup: StoryGroup = {
             user_id: currentUserId,
@@ -92,23 +88,22 @@ export default function StoryBar() {
         finalGroups.unshift(userGroup);
     }
     
-    return finalGroups;
+    // Return both the list and the status flag
+    return { groupedStories: finalGroups, hasMyActiveStories: hasActiveStories };
   }, [allStories, currentUserId, user?.avatar, user?.username]);
 
 
   // Handle Story Creation (if no stories) or Viewing (if stories exist)
   const handleMyStoryPress = () => {
-      // Find the user's own story group
-      const myStoryGroup = groupedStories.find(g => g.user_id === currentUserId);
-      
-      if (myStoryGroup && myStoryGroup.stories.length > 0) {
-          // View my own story
+      // Logic based on the flag extracted from useMemo
+      if (hasMyActiveStories) {
+          // View my own story (if stories exist)
           router.push({
              pathname: '/stories/view',
              params: { userId: currentUserId }
           });
       } else {
-          // Create new story
+          // Create new story (if no stories exist)
           router.push('/stories/create');
       }
   };
@@ -127,15 +122,14 @@ export default function StoryBar() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         
         {/* 1. My Story (Create/View Button) */}
-        {/* FIX: Ensure 'Your Story' is always the first item */}
         <TouchableOpacity style={styles.storyItem} onPress={handleMyStoryPress}>
           <View style={styles.avatarWrapper}>
             <Image 
               source={{ uri: getMediaUri(user?.avatar) || 'https://via.placeholder.com/100' }} 
               style={styles.myAvatar} 
             />
-            {/* Show plus icon only if the user has NO active stories */}
-            {(!groupedStories.find(g => g.user_id === currentUserId) || groupedStories.find(g => g.user_id === currentUserId)?.stories.length === 0) && (
+            {/* 🌟 FIX: Show plus icon only if the user has NO active stories 🌟 */}
+            {!hasMyActiveStories && (
                 <View style={styles.addIcon}>
                   <Plus size={14} color="#fff" strokeWidth={3} />
                 </View>
@@ -150,7 +144,7 @@ export default function StoryBar() {
 
         {/* 2. Real API Stories (Grouped and Sorted) */}
         {groupedStories
-          .filter(group => group.user_id !== currentUserId) // Filter out the 'Your Story' item which was prepended
+          .filter(group => group.user_id !== currentUserId) 
           .map((group: StoryGroup) => (
             <TouchableOpacity 
               key={group.user_id} 
@@ -202,6 +196,8 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     borderWidth: 2,
     borderColor: Colors.background,
+    justifyContent: 'center', // Added for better centering
+    alignItems: 'center', // Added for better centering
   },
   addIcon: {
     position: 'absolute',
