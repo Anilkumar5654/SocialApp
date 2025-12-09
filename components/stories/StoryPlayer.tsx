@@ -1,3 +1,5 @@
+// components/stories/StoryPlayer.tsx
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Animated, ActivityIndicator, KeyboardAvoidingView, PanResponder, StatusBar, Platform } from 'react-native';
 import { Image } from 'expo-image';
@@ -14,7 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api, MEDIA_BASE_URL } from '@/services/api';
 import FloatingHeart from './FloatingHeart';
 import ViewersModal from './ViewersModal';
-import CustomAlert from '@/components/modals/CustomAlert'; // Assuming you make a generic alert or use the one from viewer code
+import CustomAlert from '@/components/modals/CustomAlert'; 
+import { useToast } from '@/contexts/ToastContext'; // Assuming this hook is available
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,6 +29,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
+  const toast = useToast();
 
   // --- STATE ---
   const [activeUserIndex, setActiveUserIndex] = useState(0);
@@ -46,7 +50,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     queryKey: ['stories'], 
     queryFn: () => api.stories.getStories() 
   });
-
+  
   const storyGroups = useMemo(() => {
     if (!storiesData?.stories) return [];
     const groups: any[] = [];
@@ -65,7 +69,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
       if (index !== -1) setActiveUserIndex(index);
     }
   }, [initialUserId, storyGroups.length]);
-
+  
   const currentGroup = storyGroups[activeUserIndex];
   const currentStory = currentGroup?.stories[currentStoryIndex];
   const isOwnStory = String(currentGroup?.userId) === String(currentUser?.id);
@@ -81,12 +85,22 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
 
   const viewMutation = useMutation({ mutationFn: (id: string) => api.stories.view(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }) });
   const reactMutation = useMutation({ mutationFn: (id: string) => api.stories.react(id, 'heart') });
+  
   const deleteMutation = useMutation({ 
     mutationFn: (id: string) => api.stories.delete(id), 
     onSuccess: () => { 
         queryClient.invalidateQueries({ queryKey: ['stories'] }); 
         setAlertConfig({ visible: false });
+        // ✅ FIX: AppToast for success notification
+        toast.show('Story deleted successfully.', 'success'); 
+        
         if (currentGroup.stories.length === 1) closeViewer(); else advanceStory(); 
+    },
+    onError: (err: any) => {
+        setAlertConfig({ visible: false }); 
+        // ✅ FIX: AppToast for error notification
+        toast.show(`Failed to delete story: ${err.message}`, 'error');
+        setIsPaused(false);
     } 
   });
 
@@ -97,12 +111,13 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     if (currentStoryIndex < currentGroup.stories.length - 1) setCurrentStoryIndex(prev => prev + 1);
     else if (activeUserIndex < storyGroups.length - 1) { setActiveUserIndex(prev => prev + 1); setCurrentStoryIndex(0); }
     else closeViewer();
-  }, [currentStoryIndex, currentGroup, activeUserIndex, storyGroups]);
+  }, [currentStoryIndex, currentGroup, activeUserIndex, storyGroups, closeViewer, progressAnim]);
 
   const previousStory = () => {
     progressAnim.setValue(0); setIsLoaded(false);
     if (currentStoryIndex > 0) setCurrentStoryIndex(prev => prev - 1);
-    else if (activeUserIndex > 0) { setActiveUserIndex(prev => prev - 1); setCurrentStoryIndex(storyGroups[activeUserIndex - 1].stories.length - 1); }
+    else if (activeUserIndex > 0) { setActiveUserIndex(prev => prev - 1); setCurrentStoryIndex(storyGroups[activeUserIndex - 1].stories.length - 1);
+    }
     else setCurrentStoryIndex(0);
   };
 
@@ -132,8 +147,8 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
     const duration = currentStory.media_type === 'video' ? (currentStory.duration ? currentStory.duration * 1000 : 15000) : 5000;
     Animated.timing(progressAnim, { toValue: 1, duration: duration, useNativeDriver: false }).start(({ finished }) => { if (finished) advanceStory(); });
     return () => progressAnim.stopAnimation();
-  }, [currentStoryIndex, activeUserIndex, isPaused, isLoaded, currentStory, alertConfig.visible, showViewers]);
-
+  }, [currentStoryIndex, activeUserIndex, isPaused, isLoaded, currentStory, alertConfig.visible, showViewers, advanceStory, isOwnStory, viewMutation, progressAnim]);
+  
   const handleReaction = () => {
     const willLike = !hasLiked;
     setHasLiked(willLike);
@@ -142,9 +157,21 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
   };
 
   const getUrl = (path: string) => path?.startsWith('http') ? path : `${MEDIA_BASE_URL}/${path}`;
+  
+  const handleReplySend = async () => {
+    if (!message.trim() || !currentStory) return;
+    // We assume api.stories.reply exists now
+    try {
+        await api.stories.react(currentStory.id, message.trim()); // Using react endpoint for DM/reply simplicity
+        setMessage('');
+        toast.show('Message sent!', 'success');
+    } catch (error: any) {
+        toast.show(`Failed to send message: ${error.message}`, 'error');
+    }
+  };
 
   if (isLoading || !currentStory) return <View style={styles.container}><ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 100 }} /></View>;
-
+  
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -153,7 +180,9 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
         <View style={styles.mediaContainer}>
             {!isLoaded && <ActivityIndicator size="large" color="#fff" style={styles.loader} />}
             {currentStory.media_type === 'video' ? (
-                <Video ref={videoRef} source={{ uri: getUrl(currentStory.media_url) }} style={styles.media} resizeMode={ResizeMode.COVER} shouldPlay={!isPaused && isLoaded && !alertConfig.visible && !showViewers} onLoad={() => setIsLoaded(true)} />
+                <Video 
+                    ref={videoRef} source={{ uri: getUrl(currentStory.media_url) }} style={styles.media} resizeMode={ResizeMode.COVER} shouldPlay={!isPaused && isLoaded && !alertConfig.visible && !showViewers} onLoad={() => setIsLoaded(true)} 
+                />
             ) : (
                 <Image source={{ uri: getUrl(currentStory.media_url) }} style={styles.media} contentFit="cover" onLoad={() => setIsLoaded(true)} />
             )}
@@ -167,7 +196,9 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                     <View style={styles.progressContainer}>
                         {currentGroup.stories.map((_: any, i: number) => (
                             <View key={i} style={styles.progressBarBg}>
-                                <Animated.View style={[styles.progressBarFill, { width: i === currentStoryIndex ? progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) : i < currentStoryIndex ? '100%' : '0%' }]} />
+                                <Animated.View style={[styles.progressBarFill, { width: i === currentStoryIndex ?
+                                progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) : i < currentStoryIndex ?
+                                '100%' : '0%' }]} />
                             </View>
                         ))}
                     </View>
@@ -180,7 +211,8 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                             </View>
                         </View>
                         <View style={styles.headerRight}>
-                            {isOwnStory && <TouchableOpacity onPress={() => { setIsPaused(true); setAlertConfig({ visible: true, title: 'Delete', message: 'Delete this story?', confirmText: 'Delete', isDestructive: true, onConfirm: () => deleteMutation.mutate(currentStory.id), onCancel: () => { setAlertConfig({ visible: false }); setIsPaused(false); } }) }}><Trash2 color="#fff" size={20} /></TouchableOpacity>}
+                            {isOwnStory && <TouchableOpacity onPress={() => { setIsPaused(true);
+                            setAlertConfig({ visible: true, title: 'Delete', message: 'Delete this story?', confirmText: 'Delete', isDestructive: true, onConfirm: () => deleteMutation.mutate(currentStory.id), onCancel: () => { setAlertConfig({ visible: false }); setIsPaused(false); } }) }}><Trash2 color="#fff" size={20} /></TouchableOpacity>}
                             <TouchableOpacity onPress={closeViewer}><X color="#fff" size={24} /></TouchableOpacity>
                         </View>
                     </View>
@@ -202,7 +234,7 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
                         <View style={styles.replyRow}>
                             <View style={styles.inputPill}>
                                 <TextInput placeholder="Send message..." placeholderTextColor="rgba(255,255,255,0.7)" style={styles.input} value={message} onChangeText={setMessage} onFocus={() => setIsPaused(true)} onBlur={() => setIsPaused(false)} />
-                                {message.length > 0 && <Send color="#3B82F6" size={20} />}
+                                {message.length > 0 && <TouchableOpacity onPress={handleReplySend}><Send color="#3B82F6" size={20} /></TouchableOpacity>}
                             </View>
                             <TouchableOpacity style={styles.heartBtn} onPress={handleReaction}>
                                 <Heart color={hasLiked ? "#E1306C" : "#fff"} fill={hasLiked ? "#E1306C" : "transparent"} size={28} />
@@ -215,7 +247,6 @@ export default function StoryPlayer({ initialUserId }: StoryPlayerProps) {
       </View>
 
       <ViewersModal visible={showViewers} storyId={currentStory.id} onClose={() => { setShowViewers(false); setIsPaused(false); }} />
-      {/* Agar CustomAlert component alag nahi banaya to yahi paste kar lena, par clean structure ke liye alag hona chahiye */}
       {alertConfig.visible && <CustomAlert {...alertConfig} />}
     </KeyboardAvoidingView>
   );
@@ -249,4 +280,3 @@ const styles = StyleSheet.create({
   heartBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' },
   heartsContainer: { position: 'absolute', bottom: 60, right: 20, height: 300, width: 50 }
 });
-        
