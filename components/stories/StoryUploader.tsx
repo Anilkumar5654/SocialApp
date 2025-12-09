@@ -5,14 +5,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, TextInp
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router'; // Stack import kiya gaya
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Image as ImageIcon, Video as VideoIcon, Send, Camera, RefreshCcw } from 'lucide-react-native';
 
 import { api } from '@/services/api';
 import Colors from '@/constants/colors';
-import { useToast } from '@/contexts/ToastContext'; // Assuming this hook is available
+import { useToast } from '@/contexts/ToastContext'; 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -20,7 +20,7 @@ export default function StoryUploader() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const videoRef = useRef<Video>(null);
-  const toast = useToast();
+  const toast = useToast(); 
 
   const [caption, setCaption] = useState('');
   const [media, setMedia] = useState<{ uri: string; type: 'image' | 'video'; mimeType: string; duration?: number; } | null>(null);
@@ -44,8 +44,12 @@ export default function StoryUploader() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
-      toast.show('Your story is live!', 'success'); // Replaced Alert
-      router.back();
+      // FIX: Alert.alert को AppToast से बदला गया + Delay
+      toast.show('Your story is live!', 'success'); 
+      // Delay before navigating back so the toast is visible
+      setTimeout(() => {
+        router.back(); 
+      }, 500); 
     },
     onError: (err: any) => {
       toast.show(`Failed to upload story: ${err.message}`, 'error'); // Replaced Alert
@@ -75,7 +79,12 @@ export default function StoryUploader() {
     // Selection View
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.header}><TouchableOpacity onPress={() => router.back()}><X color="#fff" size={32} /></TouchableOpacity><Text style={styles.title}>Add to Story</Text><View style={{width:32}} /></View>
+            <Stack.Screen options={{ headerShown: false }} /> 
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()}><X color="#fff" size={32} /></TouchableOpacity>
+              <Text style={styles.title}>Add to Story</Text>
+              <View style={{width:32}} />
+            </View>
             <View style={styles.center}>
                 <Text style={styles.hint}>Share your moments</Text>
                 <View style={styles.grid}>
@@ -91,6 +100,7 @@ export default function StoryUploader() {
   // Preview View
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} /> 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={{ flex: 1 }}>
                 {media.type === 'video' ? (
@@ -105,7 +115,7 @@ export default function StoryUploader() {
                 <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 10 }]}>
                     <View style={styles.captionBox}>
                         <TextInput style={styles.input} placeholder="Write a caption..." placeholderTextColor="#ccc" value={caption} onChangeText={setCaption} multiline maxLength={150} />
-                        <Text style={styles.count}>{caption.length}/150</Text>
+                        <Text style={styles.count}>{caption.length}/150}</Text>
                     </View>
                     <TouchableOpacity style={[styles.sendBtn, uploadMutation.isPending && {opacity:0.5}]} 
                       onPress={() => uploadMutation.mutate({ media, caption })} disabled={uploadMutation.isPending}>
