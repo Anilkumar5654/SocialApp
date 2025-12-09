@@ -1,5 +1,7 @@
+// components/stories/StoryUploader.tsx
+
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, Platform, TextInput, KeyboardAvoidingView, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, TextInput, KeyboardAvoidingView, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
@@ -9,6 +11,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Image as ImageIcon, Video as VideoIcon, Send, Camera, RefreshCcw } from 'lucide-react-native';
 
 import { api } from '@/services/api';
+import Colors from '@/constants/colors';
+import { useToast } from '@/contexts/ToastContext'; // Assuming this hook is available
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -16,6 +20,7 @@ export default function StoryUploader() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const videoRef = useRef<Video>(null);
+  const toast = useToast();
 
   const [caption, setCaption] = useState('');
   const [media, setMedia] = useState<{ uri: string; type: 'image' | 'video'; mimeType: string; duration?: number; } | null>(null);
@@ -39,21 +44,27 @@ export default function StoryUploader() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
-      Alert.alert('Posted!', 'Your story is live.', [{ text: 'OK', onPress: () => router.back() }]);
+      toast.show('Your story is live!', 'success'); // Replaced Alert
+      router.back();
     },
-    onError: (err: any) => Alert.alert('Error', err.message),
+    onError: (err: any) => {
+      toast.show(`Failed to upload story: ${err.message}`, 'error'); // Replaced Alert
+    },
   });
 
   const handlePick = async (mode: 'camera' | 'library', type: 'image' | 'video' | 'all') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permission needed');
-
+    if (status !== 'granted') {
+      toast.show('Permission needed to access media library.', 'info'); 
+      return; 
+    }
+    
     const opts: ImagePicker.ImagePickerOptions = {
         mediaTypes: type === 'video' ? ImagePicker.MediaTypeOptions.Videos : type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.All,
         allowsEditing: true, quality: 0.8, videoMaxDuration: 60, aspect: [9, 16],
     };
-    
     const res = mode === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+    
     if (!res.canceled && res.assets[0]) {
         const asset = res.assets[0];
         setMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image', mimeType: asset.mimeType || 'image/jpeg', duration: asset.duration ? asset.duration / 1000 : undefined });
@@ -68,7 +79,7 @@ export default function StoryUploader() {
             <View style={styles.center}>
                 <Text style={styles.hint}>Share your moments</Text>
                 <View style={styles.grid}>
-                    <TouchableOpacity style={styles.card} onPress={() => handlePick('camera', 'all')}><View style={[styles.circle, {backgroundColor:'#E1306C'}]}><Camera color="#fff" size={32}/></View><Text style={styles.label}>Camera</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.card} onPress={() => handlePick('camera', 'all')}><View style={[styles.circle, {backgroundColor:Colors.primary}]}><Camera color="#fff" size={32}/></View><Text style={styles.label}>Camera</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.card} onPress={() => handlePick('library', 'image')}><View style={[styles.circle, {backgroundColor:'#405DE6'}]}><ImageIcon color="#fff" size={32}/></View><Text style={styles.label}>Photos</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.card} onPress={() => handlePick('library', 'video')}><View style={[styles.circle, {backgroundColor:'#F56040'}]}><VideoIcon color="#fff" size={32}/></View><Text style={styles.label}>Videos</Text></TouchableOpacity>
                 </View>
@@ -96,8 +107,10 @@ export default function StoryUploader() {
                         <TextInput style={styles.input} placeholder="Write a caption..." placeholderTextColor="#ccc" value={caption} onChangeText={setCaption} multiline maxLength={150} />
                         <Text style={styles.count}>{caption.length}/150</Text>
                     </View>
-                    <TouchableOpacity style={[styles.sendBtn, uploadMutation.isPending && {opacity:0.5}]} onPress={() => uploadMutation.mutate({ media, caption })} disabled={uploadMutation.isPending}>
-                        {uploadMutation.isPending ? <ActivityIndicator color="#000" /> : <><Text style={styles.sendText}>Share</Text><Send color="#000" size={18} /></>}
+                    <TouchableOpacity style={[styles.sendBtn, uploadMutation.isPending && {opacity:0.5}]} 
+                      onPress={() => uploadMutation.mutate({ media, caption })} disabled={uploadMutation.isPending}>
+                        {uploadMutation.isPending ?
+                        <ActivityIndicator color="#000" /> : <><Text style={styles.sendText}>Share</Text><Send color="#000" size={18} /></>}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -125,4 +138,3 @@ const styles = StyleSheet.create({
   count: { color: '#aaa', fontSize: 10, alignSelf: 'flex-end' },
   sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 30, height: 56, gap: 8 }
 });
-        
