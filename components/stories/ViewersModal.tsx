@@ -1,4 +1,6 @@
-import React from 'react';
+// components/stories/ViewersModal.tsx
+
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { X, Heart } from 'lucide-react-native';
@@ -8,13 +10,24 @@ import { router } from 'expo-router';
 import Colors from '@/constants/colors';
 import { formatTimeAgo } from '@/constants/timeFormat';
 import { api, MEDIA_BASE_URL } from '@/services/api';
+import { useToast } from '@/contexts/ToastContext'; // Assuming this hook is available
 
 export default function ViewersModal({ visible, onClose, storyId }: { visible: boolean; onClose: () => void; storyId: string }) {
-  const { data, isLoading } = useQuery({
+  const toast = useToast();
+
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['story-viewers', storyId],
     queryFn: () => api.stories.getViewers(storyId),
     enabled: visible && !!storyId,
   });
+
+  // Handle Fetch Error
+  useEffect(() => {
+    if (isError) {
+      toast.show('Failed to fetch viewers list.', 'error');
+      onClose(); // Close modal on error
+    }
+  }, [isError, onClose, toast]); 
 
   const viewers = data?.viewers || [];
   const getImageUri = (uri: string) => uri?.startsWith('http') ? uri : `${MEDIA_BASE_URL}/${uri}`;
@@ -31,10 +44,10 @@ export default function ViewersModal({ visible, onClose, storyId }: { visible: b
           {isLoading ? <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} /> : (
             <FlatList
               data={viewers}
-              keyExtractor={(item) => item.user_id.toString()}
+              keyExtractor={(item: any) => item.user_id}
               contentContainerStyle={{ padding: 16 }}
               ListEmptyComponent={<Text style={styles.empty}>No views yet.</Text>}
-              renderItem={({ item }) => (
+              renderItem={({ item }: { item: any }) => (
                 <TouchableOpacity style={styles.item} onPress={() => { onClose(); router.push({ pathname: '/user/[userId]', params: { userId: item.user_id } }); }}>
                   <Image source={{ uri: getImageUri(item.avatar) }} style={styles.avatar} />
                   <View style={{ flex: 1 }}>
@@ -64,4 +77,3 @@ const styles = StyleSheet.create({
   name: { color: '#fff', fontWeight: '600' },
   time: { color: '#888', fontSize: 12 }
 });
-                      
