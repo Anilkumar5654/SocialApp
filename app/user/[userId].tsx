@@ -1,129 +1,129 @@
-// SearchScreen.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  Text,
-  StatusBar,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
-import { Search as SearchIcon, X, ArrowLeft } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query'; 
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Grid } from 'lucide-react-native';
 
 import Colors from '@/constants/colors';
 import { api } from '@/services/api';
-import UserListItem from '@/components/user/UserListItem';
+import { getMediaUri } from '@/utils/media';
 
-export default function SearchScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+// 👇 Reusing Smart Profile Header
+import ProfileHeader from '@/components/profile/ProfileHeader';
 
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+const { width } = Dimensions.get('window');
+const GRID_SIZE = (width - 2) / 3;
 
-  // Debounce
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [query]);
+export default function UserProfileScreen() {
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
+  // Handle array/string param safely
+  const resolvedUserId = Array.isArray(userId) ? userId[0] : userId ?? '';
 
-  // Fetch Users
-  const { 
-    data: usersData, 
-    isLoading: isLoadingUsers,
-    isFetching: isFetchingUsers 
-  } = useQuery({
-    queryKey: ['search-users', debouncedQuery],
-    queryFn: () => api.search.users(debouncedQuery),
-    enabled: debouncedQuery.length > 0, 
+  const [activeTab, setActiveTab] = useState<'posts'>('posts');
+
+  // 1. Fetch User Data
+  const { data: profileData, isLoading: loadingProfile, isError } = useQuery({
+    queryKey: ['user-profile', resolvedUserId],
+    queryFn: () => api.users.getProfile(resolvedUserId),
+    enabled: !!resolvedUserId,
   });
 
-  // Data Extraction
-  const users = 
-    (usersData as any)?.results?.users || 
-    (usersData as any)?.users || 
-    [];
-  
-  const isLoading = isFetchingUsers;
+  // 2. Fetch User Posts
+  const { data: postsData, isLoading: loadingPosts } = useQuery({
+    queryKey: ['user-posts', resolvedUserId],
+    queryFn: () => api.users.getPosts(resolvedUserId, 1),
+    enabled: !!resolvedUserId,
+  });
 
-  const handleClearSearch = () => {
-    setQuery('');
-    setDebouncedQuery('');
-  };
+  const user = profileData?.user;
+  const posts = postsData?.posts || [];
+
+  if (loadingProfile) {
+    return (
+        <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+    );
+  }
+
+  if (isError || !user) {
+    return (
+        <View style={styles.center}>
+            <Text style={{ color: Colors.textSecondary }}>User not found</Text>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                <Text style={{ color: Colors.primary }}>Go Back</Text>
+            </TouchableOpacity>
+        </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <Stack.Screen options={{ headerShown: false }} />
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{ 
+            headerShown: true, 
+            title: user.username, 
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.text,
+            headerLeft: () => (
+                <TouchableOpacity onPress={() => router.back()} style={{ paddingRight: 10 }}>
+                    <ArrowLeft color={Colors.text} size={24} />
+                </TouchableOpacity>
+            )
+        }} 
+      />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft color={Colors.text} size={24} />
-        </TouchableOpacity>
-        <View style={styles.searchBar}>
-          <SearchIcon color={Colors.textMuted} size={20} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search users..." 
-            placeholderTextColor={Colors.textMuted}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            returnKeyType="search"
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={handleClearSearch}>
-              <X color={Colors.textMuted} size={18} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Content */}
-      {isLoading && users.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : (
-        <View style={styles.content}>
-            <FlatList
-              data={users}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <UserListItem user={item} /> 
-              )}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                debouncedQuery ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>No users found.</Text>
-                  </View>
-                ) : null
-              }
-            />
-        </View>
-      )}
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={3}
+        // 👇 Header Component handles all profile details
+        ListHeaderComponent={
+            <>
+                <ProfileHeader user={user} />
+                {/* Tabs Section */}
+                <View style={styles.tabs}>
+                    <TouchableOpacity style={[styles.tab, styles.tabActive]}>
+                        <Grid color={Colors.primary} size={22} />
+                    </TouchableOpacity>
+                </View>
+            </>
+        }
+        renderItem={({ item }) => {
+            const uri = item.images?.[0] ? getMediaUri(item.images[0]) : getMediaUri(item.thumbnail_url);
+            return (
+                <TouchableOpacity 
+                    style={styles.gridItem} 
+                    onPress={() => router.push({ pathname: '/post/[postId]', params: { postId: item.id } })}
+                >
+                    <Image source={{ uri }} style={styles.gridImg} contentFit="cover" />
+                </TouchableOpacity>
+            );
+        }}
+        ListEmptyComponent={
+            !loadingPosts ? (
+                <View style={styles.empty}>
+                    <Text style={styles.emptyText}>No posts yet</Text>
+                </View>
+            ) : <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 12 },
-  backButton: { padding: 4 },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 12, height: 40, gap: 8 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 16, height: '100%' },
-  content: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingBottom: 20 },
-  emptyState: { padding: 32, alignItems: 'center' },
-  emptyText: { color: Colors.textSecondary, fontSize: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  
+  tabs: { borderBottomWidth: 1, borderColor: Colors.border, flexDirection: 'row', justifyContent: 'center' },
+  tab: { paddingVertical: 14, width: '33%', alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderColor: Colors.primary },
+  
+  gridItem: { width: GRID_SIZE, height: GRID_SIZE, margin: 0.5, backgroundColor: '#1A1A1A' },
+  gridImg: { width: '100%', height: '100%' },
+  
+  empty: { padding: 40, alignItems: 'center' },
+  emptyText: { color: Colors.textSecondary }
 });
