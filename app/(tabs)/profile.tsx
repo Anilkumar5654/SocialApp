@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Grid } from 'lucide-react-native'; // Keeping Grid icon only for the Posts tab content
 
 import Colors from '@/constants/colors';
-import { useAuth } from '@/contexts/authContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import { getMediaUri } from '@/utils/media';
 
