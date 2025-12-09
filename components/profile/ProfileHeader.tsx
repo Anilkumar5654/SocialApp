@@ -10,15 +10,20 @@ import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
+// 🎯 FIX 1: Assuming your dedicated FollowBtn component path is correct
+// If your FollowBtn component handles the "Follow/Following/Follow Back" logic, import it here:
+import FollowBtn from '@/components/buttons/FollowBtn'; 
+// NOTE: Make sure the file exists at this path!
+
 interface ProfileHeaderProps {
-    user: any; // User profile data
+    user: any; // The user whose profile is being viewed
 }
 
 // --- PROFILE HEADER COMPONENT ---
 export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps) {
     const { user: authUser, isAuthenticated } = useAuth();
     
-    // 🎯 CRITICAL FIX: Ensure ID comparison works across String/Number types
+    // 🎯 FIX 2: CRITICAL ID COMPARISON FIX for My Profile check
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
 
     const avatarUri = profileUser?.avatar ? getMediaUri(profileUser.avatar) : getMediaUri('assets/default_avatar.jpg');
@@ -36,9 +41,9 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                 />
                 
                 <View style={styles.profileDetails}>
-                    {/* Text Size Increased */}
+                    {/* 🎯 FIX 3: Removed "User Profile" placeholder text */}
                     <Text style={styles.channelName} numberOfLines={1}>
-                        {profileUser?.full_name || 'User Profile'}
+                        {profileUser?.full_name || ''} 
                     </Text>
                     <Text style={styles.channelHandle}>
                         {profileUser?.username ? `@${profileUser.username}` : 'No username'}
@@ -49,17 +54,14 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
             {/* Stats Row */}
             <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                    {/* Text Size Increased */}
                     <Text style={styles.statNumber}>18</Text>
                     <Text style={styles.statLabel}>Posts</Text>
                 </View>
                 <View style={styles.statItem}>
-                     {/* Text Size Increased */}
                     <Text style={styles.statNumber}>{followerCount}</Text>
                     <Text style={styles.statLabel}>Followers</Text>
                 </View>
                 <View style={styles.statItem}>
-                     {/* Text Size Increased */}
                     <Text style={styles.statNumber}>2</Text>
                     <Text style={styles.statLabel}>Following</Text>
                 </View>
@@ -68,9 +70,8 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
             {/* Action Buttons (Conditional Rendering) */}
             <View style={styles.actionRow}>
                 {isMyProfile ? (
-                    // --- 🌟 YOUR PROFILE: EDIT, STUDIO, SETTINGS 🌟 ---
+                    // --- YOUR PROFILE: EDIT, STUDIO, SETTINGS ---
                     <>
-                        {/* 1. Edit Profile Button */}
                         <TouchableOpacity 
                             style={styles.actionButton}
                             onPress={() => router.push('/edit-profile')}
@@ -79,7 +80,6 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                             <Text style={styles.actionButtonText}>Edit Profile</Text>
                         </TouchableOpacity>
                         
-                        {/* 2. Creator Studio Button (Icon Only) */}
                         <TouchableOpacity 
                             style={styles.iconButton}
                             onPress={() => router.push('/creator-studio')}
@@ -87,7 +87,6 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                             <BarChart3 size={20} color={Colors.textSecondary} />
                         </TouchableOpacity>
                         
-                        {/* 3. Settings Button (Icon Only) */}
                         <TouchableOpacity 
                             style={styles.iconButton}
                             onPress={() => router.push('/settings')}
@@ -97,13 +96,14 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                     </>
                 ) : (
                     // --- OTHER USER'S PROFILE: FOLLOW BUTTON ---
-                    // Assuming you will import FollowBtn here later, using a simple button for now
-                    <TouchableOpacity 
-                        style={styles.followButton}
-                        onPress={() => console.log('Follow button pressed')}
-                    >
-                        <Text style={styles.followButtonText}>Following</Text>
-                    </TouchableOpacity>
+                    // 🎯 FIX 4: Call the imported FollowBtn component
+                    <FollowBtn
+                        userId={profileUser.id}
+                        isFollowing={profileUser.is_following} 
+                        isFollowedByViewer={profileUser.is_followed_by_viewer} 
+                        // Note: If you have custom styling for the button, pass it here
+                        // style={styles.followingButton} 
+                    />
                 )}
             </View>
             
@@ -114,7 +114,7 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
     );
 }
 
-// --- STYLES ---
+// --- STYLES (Adjusted for bigger text and restored Following button color logic) ---
 const styles = StyleSheet.create({
     headerContainer: {
         width: '100%',
@@ -211,10 +211,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     
-    // Button for OTHER USER
+    // Fallback/Styling for Following Button (If FollowBtn.tsx needs custom dark theme styling)
+    followingButton: {
+        backgroundColor: '#262626', // Dark background for Following state
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
     followButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 10, // Increased padding
+        backgroundColor: Colors.primary, // Pink/Primary color for Follow state
+        paddingVertical: 10, 
         paddingHorizontal: 15,
         borderRadius: 20,
         justifyContent: 'center',
@@ -223,7 +228,7 @@ const styles = StyleSheet.create({
     },
     followButtonText: {
         color: Colors.text,
-        fontSize: 16, // Increased
+        fontSize: 16, 
         fontWeight: '600',
     },
 });
