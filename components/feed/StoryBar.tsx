@@ -35,7 +35,7 @@ export default function StoryBar() {
 
   const allStories = data?.stories || [];
 
-  const { groupedStories, myStoryGroup } = useMemo(() => {
+  const { groupedStories, myStoryGroup, currentUserStories } = useMemo(() => {
     const groups: { [key: string]: StoryGroup } = {};
     let currentUserStories: any[] = [];
     
@@ -76,6 +76,7 @@ export default function StoryBar() {
 
     let myGroup: StoryGroup | undefined;
     
+    // NOTE: We do NOT prepend myGroup here. We handle its rendering separately in JSX.
     if (currentUserStories.length > 0) {
         const lastStory = currentUserStories[currentUserStories.length - 1]; 
         
@@ -87,30 +88,35 @@ export default function StoryBar() {
             stories: currentUserStories,
             hasUnviewed: currentUserStories.some(s => !s.is_viewed) 
         };
-        finalGroups.unshift(myGroup);
     }
     
-    return { groupedStories: finalGroups, myStoryGroup: myGroup };
+    return { groupedStories: finalGroups, myStoryGroup: myGroup, currentUserStories };
   }, [allStories, currentUserId, user?.avatar, user?.username]);
 
   
   const hasMyActiveStories = myStoryGroup?.stories.length > 0;
   
-  const handleMyStoryPress = () => {
-      if (hasMyActiveStories) {
-          router.push({
-             pathname: '/stories/view',
-             params: { userId: currentUserId }
-          });
-      } else {
-          router.push('/stories/create');
-      }
-  };
-
+  // 🌟 FIX 2: Calculate starting index for view
+  const calculateStartIndex = (stories: any[]) => {
+    // Find the index of the first story that is NOT viewed
+    const firstUnviewedIndex = stories.findIndex(s => !s.is_viewed);
+    // If found, return that index. Otherwise, return 0.
+    return firstUnviewedIndex >= 0 ? firstUnviewedIndex : 0;
+  }
+  
+  // Handle Press on a specific story group
   const handleStoryGroupPress = (group: StoryGroup) => {
+    // Check if the user is viewing their own story or another user's story
+    const storiesArray = group.user_id === currentUserId ? currentUserStories : group.stories;
+    
+    const startIndex = calculateStartIndex(storiesArray);
+    
     router.push({
       pathname: '/stories/view',
-      params: { userId: group.user_id } 
+      params: { 
+        userId: group.user_id,
+        startIndex: String(startIndex) // Send the starting index
+      } 
     });
   };
 
@@ -119,36 +125,58 @@ export default function StoryBar() {
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         
+        {/* 1. Upload Button (Always first, always links to create) */}
         <TouchableOpacity 
           style={styles.storyItem} 
-          onPress={handleMyStoryPress}
+          onPress={() => router.push('/stories/create')} // Always leads to upload
         >
           <View style={styles.avatarWrapper}>
             <Image 
-              source={{ uri: getMediaUri(myStoryGroup?.lastStoryThumbnail || user?.avatar) || 'https://via.placeholder.com/100' }} 
+              source={{ uri: getMediaUri(user?.avatar) || 'https://via.placeholder.com/100' }} 
               style={styles.myAvatar} 
             />
-            
-            <TouchableOpacity 
-              style={styles.addIcon} 
-              onPress={() => router.push('/stories/create')}
-            >
+            {/* Plus icon always visible */}
+            <View style={styles.addIcon}>
               <Plus size={14} color="#fff" strokeWidth={3} />
-            </TouchableOpacity>
-            
+            </View>
           </View>
-          <Text style={styles.username} numberOfLines={1}>Your Story</Text>
+          <Text style={styles.username} numberOfLines={1}>Upload</Text>
         </TouchableOpacity>
+        
+        {/* 2. Your Active Story (Only renders if stories exist) */}
+        {hasMyActiveStories && myStoryGroup && (
+            <TouchableOpacity 
+                style={styles.storyItem} 
+                onPress={() => handleStoryGroupPress(myStoryGroup)} // Leads to view from the correct index
+            >
+                <LinearGradient
+                    // Use gradient for your own story ring
+                    colors={myStoryGroup.hasUnviewed ? [Colors.primary, '#A020F0'] : ['#333', '#333']}
+                    style={styles.ring}
+                >
+                    <View style={styles.avatarBorder}>
+                        <Image 
+                            source={{ uri: getMediaUri(myStoryGroup.lastStoryThumbnail) }} 
+                            style={styles.avatar} 
+                        />
+                    </View>
+                </LinearGradient>
+                <Text style={styles.username} numberOfLines={1}>Your Story</Text>
+            </TouchableOpacity>
+        )}
 
+        {/* Loading Indicator */}
         {isLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 10 }} />}
 
+        {/* 3. Other Users' Stories */}
         {groupedStories
+          // Filter out the current user's story (because we handle it separately above)
           .filter(group => group.user_id !== currentUserId) 
           .map((group: StoryGroup) => (
             <TouchableOpacity 
               key={group.user_id} 
               style={styles.storyItem}
-              onPress={() => handleStoryGroupPress(group)}
+              onPress={() => handleStoryGroupPress(group)} // Leads to view from the correct index
             >
               <LinearGradient
                 colors={group.hasUnviewed ? [Colors.primary, '#A020F0'] : ['#333', '#333']}
