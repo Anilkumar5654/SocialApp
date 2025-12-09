@@ -4,26 +4,24 @@ import { Image } from 'expo-image';
 import { Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router'; 
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // useQueryClient added for future updates
+import { useQuery, useQueryClient } from '@tanstack/react-query'; 
 
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 import { api } from '@/services/api'; 
 
-// --- INTERFACE DEFINITIONS ---
 interface StoryGroup {
   user_id: string;
   username: string;
-  avatar: string; // User's profile avatar
-  lastStoryThumbnail: string; // The media URL of the last uploaded story
+  avatar: string; 
+  lastStoryThumbnail: string;
   stories: any[];
   hasUnviewed: boolean;
 }
 
 export default function StoryBar() {
   const { user } = useAuth();
-  // We include useQueryClient here for instant UI updates after successful upload mutation
   const queryClient = useQueryClient(); 
   const currentUserId = String(user?.id); 
 
@@ -62,41 +60,33 @@ export default function StoryBar() {
       
       groups[uid].stories.push(story);
       
-      // Update Unviewed status and lastStoryThumbnail
       if (!story.is_viewed) {
         groups[uid].hasUnviewed = true;
       }
-      // Set the thumbnail to the media URL of the most recent story (since the API returns ASC, the last one is the most recent)
       groups[uid].lastStoryThumbnail = story.media_url;
     });
 
     const finalGroups = Object.values(groups);
 
-    // 🌟 LOGIC 3: Sorting - Unwatched first, Watched last
     finalGroups.sort((a, b) => {
-      // Primary Sort: Unwatched stories come first
       if (a.hasUnviewed && !b.hasUnviewed) return -1; 
       if (!a.hasUnviewed && b.hasUnviewed) return 1;  
-      
-      // Secondary Sort: Newest created story first (if both are watched/unwatched)
       return new Date(b.stories[0].created_at).getTime() - new Date(a.stories[0].created_at).getTime(); 
     });
 
     let myGroup: StoryGroup | undefined;
     
     if (currentUserStories.length > 0) {
-        // Find the media URL of the *last* story for the thumbnail
         const lastStory = currentUserStories[currentUserStories.length - 1]; 
         
         myGroup = {
             user_id: currentUserId,
             username: user?.username || 'Your Story', 
             avatar: user?.avatar || '',
-            lastStoryThumbnail: lastStory?.media_url || user?.avatar || '', // Use story media URL as thumbnail
+            lastStoryThumbnail: lastStory?.media_url || user?.avatar || '',
             stories: currentUserStories,
             hasUnviewed: currentUserStories.some(s => !s.is_viewed) 
         };
-        // 🌟 LOGIC 2: Push 'Your Story' to the front
         finalGroups.unshift(myGroup);
     }
     
@@ -106,16 +96,13 @@ export default function StoryBar() {
   
   const hasMyActiveStories = myStoryGroup?.stories.length > 0;
   
-  // 🌟 LOGIC 2 (Handling Tap): View vs. Create
   const handleMyStoryPress = () => {
       if (hasMyActiveStories) {
-          // If stories exist, view them
           router.push({
              pathname: '/stories/view',
              params: { userId: currentUserId }
           });
       } else {
-          // If no stories exist, navigate to create screen
           router.push('/stories/create');
       }
   };
@@ -132,27 +119,29 @@ export default function StoryBar() {
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         
-        {/* 1. My Story (View/Create) */}
-        <TouchableOpacity style={styles.storyItem} onPress={handleMyStoryPress}>
+        <TouchableOpacity 
+          style={styles.storyItem} 
+          onPress={handleMyStoryPress}
+        >
           <View style={styles.avatarWrapper}>
             <Image 
-              // 🌟 LOGIC 4: Use lastStoryThumbnail if available, otherwise use avatar
               source={{ uri: getMediaUri(myStoryGroup?.lastStoryThumbnail || user?.avatar) || 'https://via.placeholder.com/100' }} 
               style={styles.myAvatar} 
             />
-            {/* 🌟 LOGIC 1: Upload Button Always Visible 🌟 */}
-            <View style={styles.addIcon}>
+            
+            <TouchableOpacity 
+              style={styles.addIcon} 
+              onPress={() => router.push('/stories/create')}
+            >
               <Plus size={14} color="#fff" strokeWidth={3} />
-            </View>
+            </TouchableOpacity>
             
           </View>
           <Text style={styles.username} numberOfLines={1}>Your Story</Text>
         </TouchableOpacity>
 
-        {/* Loading Indicator */}
         {isLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 10 }} />}
 
-        {/* 2. Real API Stories (Filtered and Sorted) */}
         {groupedStories
           .filter(group => group.user_id !== currentUserId) 
           .map((group: StoryGroup) => (
@@ -162,12 +151,10 @@ export default function StoryBar() {
               onPress={() => handleStoryGroupPress(group)}
             >
               <LinearGradient
-                // Watched/Unwatched Ring Logic
                 colors={group.hasUnviewed ? [Colors.primary, '#A020F0'] : ['#333', '#333']}
                 style={styles.ring}
               >
                 <View style={styles.avatarBorder}>
-                  {/* Use lastStoryThumbnail for other users' ring icon */}
                   <Image source={{ uri: getMediaUri(group.lastStoryThumbnail) }} style={styles.avatar} />
                 </View>
               </LinearGradient>
