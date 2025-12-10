@@ -39,6 +39,7 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
     
     const [isLiked, setIsLiked] = useState(item.is_liked);
     const [likesCount, setLikesCount] = useState(item.likes_count);
+    const isVerified = item.isVerified || item.is_verified; // Assuming verification status comes with item
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => setAppActive(nextAppState === 'active'));
@@ -119,7 +120,9 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
 
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gradient} />
 
-                    <View style={{ bottom: insets.bottom + 60, position: 'absolute', right: 0, zIndex: 30 }}> 
+                    {/* Action Buttons (Right side) */}
+                    <View style={{ bottom: insets.bottom + 100, position: 'absolute', right: 0, zIndex: 30 }}> 
+                        {/* ✅ FIX: Increased margin to 100 to clear the bottom Tab Bar and padding */}
                         <ReelActions 
                             item={item}
                             isLiked={isLiked}
@@ -130,8 +133,9 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                         />
                     </View>
 
-                    {/* Bottom Info */}
-                    <View style={[styles.info, { bottom: insets.bottom + 20, zIndex: 40 }]}>
+                    {/* Bottom Info (Left side) */}
+                    <View style={[styles.info, { bottom: insets.bottom + 60, zIndex: 40 }]}> 
+                        {/* ✅ FIX: Increased margin to 60 to clear the bottom Tab Bar */}
                         <View style={styles.userRow}>
                             {/* 🔗 Channel Click Area (Name + Avatar) */}
                             <TouchableOpacity 
@@ -141,6 +145,8 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                             >
                                 <Image source={{ uri: getMediaUri(item.channel_avatar) }} style={styles.avatar} />
                                 <Text style={styles.username}>{item.channel_name}</Text>
+                                {/* Optional: Verified Badge if applicable to channel */}
+                                {isVerified && <CheckCircle size={14} color="#fff" />}
                             </TouchableOpacity>
                             
                             <SubscribeBtn 
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
     info: { position: 'absolute', left: 16, right: 80 },
     userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
     
-    // ✅ FIX: Consolidated clickable area for user info (Name + Avatar)
+    // Consolidated clickable area for user info (Name + Avatar)
     userInfoClickable: { flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 50 }, 
     
     avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#fff' },
