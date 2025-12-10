@@ -1,3 +1,5 @@
+// File: src/components/reels/ReelItem.tsx
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Animated, AppState } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
@@ -117,7 +119,7 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
 
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gradient} />
 
-                    <View style={{ bottom: insets.bottom + 60, position: 'absolute', right: 0 }}>
+                    <View style={{ bottom: insets.bottom + 60, position: 'absolute', right: 0, zIndex: 30 }}> {/* Added zIndex for actions */}
                         <ReelActions 
                             item={item}
                             isLiked={isLiked}
@@ -129,12 +131,12 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                     </View>
 
                     {/* Bottom Info */}
-                    <View style={[styles.info, { bottom: insets.bottom + 20 }]}>
+                    <View style={[styles.info, { bottom: insets.bottom + 20, zIndex: 40 }]}> {/* Added zIndex */}
                         <View style={styles.userRow}>
-                            {/* 🔗 Channel Click Area */}
+                            {/* 🔗 Channel Click Area (Name + Avatar) */}
                             <TouchableOpacity 
                                 onPress={handleChannelPress} 
-                                style={styles.userInfo}
+                                style={styles.userInfoClickable} // Using specific style to control area
                                 activeOpacity={0.8}
                             >
                                 <Image source={{ uri: getMediaUri(item.channel_avatar) }} style={styles.avatar} />
@@ -166,14 +168,27 @@ const styles = StyleSheet.create({
     videoWrapper: { flex: 1 },
     video: { width: '100%', height: '100%' },
     centerHeart: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
-    gradient: { position: 'absolute', bottom: 0, width: '100%', height: 300 }, // Increased gradient height
+    gradient: { position: 'absolute', bottom: 0, width: '100%', height: 300 }, 
     
     info: { position: 'absolute', left: 16, right: 80 },
     userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
-    userInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    
+    // ✅ FIX: Consolidated clickable area for user info
+    userInfoClickable: { flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 50 }, 
+    
     avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#fff' },
     username: { color: '#fff', fontWeight: '700', fontSize: 16 },
-    subBtn: { paddingVertical: 4, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: '#fff', borderRadius: 8, minWidth: 70 },
+    
+    subBtn: { 
+        paddingVertical: 4, 
+        paddingHorizontal: 12, 
+        backgroundColor: 'rgba(255,255,255,0.2)', 
+        borderWidth: 1, 
+        borderColor: '#fff', 
+        borderRadius: 8, 
+        minWidth: 70,
+        zIndex: 50, // Ensures Subscribe button is clickable
+    },
     
     caption: { color: '#fff', fontSize: 14, marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
     musicRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
