@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import Colors from '@/constants/colors';
-import { useRouter } from 'expo-router'; // useRouter imported
-import { Camera } from 'lucide-react-native'; // Camera icon imported
+import { useRouter } from 'expo-router'; // 👈 useRouter added
+import { Camera } from 'lucide-react-native'; // 👈 Camera icon added
 
 import ReelItem from '@/components/reels/ReelItem';
 import CommentsModal from '@/components/modals/CommentsModal';
@@ -16,7 +16,7 @@ import OptionsModal from '@/components/modals/OptionsModal';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ReelsScreen() {
-    const router = useRouter(); // Initialize router
+    const router = useRouter(); // 👈 Initialize router
     const [activeIndex, setActiveIndex] = useState(0);
     const [page, setPage] = useState(1);
     
