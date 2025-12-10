@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, FlatList, ActivityIndicator, Dimensions, RefreshControl, StatusBar, Alert, StyleSheet } from 'react-native';
+import { View, FlatList, ActivityIndicator, Dimensions, RefreshControl, StatusBar, Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import Colors from '@/constants/colors';
+import { useRouter } from 'expo-router'; // useRouter imported
+import { Camera } from 'lucide-react-native'; // Camera icon imported
 
 import ReelItem from '@/components/reels/ReelItem';
 import CommentsModal from '@/components/modals/CommentsModal';
@@ -14,6 +16,7 @@ import OptionsModal from '@/components/modals/OptionsModal';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ReelsScreen() {
+    const router = useRouter(); // Initialize router
     const [activeIndex, setActiveIndex] = useState(0);
     const [page, setPage] = useState(1);
     
@@ -50,6 +53,11 @@ export default function ReelsScreen() {
 
     const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
+    const handleCameraPress = () => {
+        // 🚀 Navigation to Upload Screen
+        router.push('/reels/upload');
+    };
+
     if (isLoading && page === 1) {
         return (
             <View style={styles.center}>
@@ -62,6 +70,14 @@ export default function ReelsScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
             
+            {/* 📸 CAMERA BUTTON / HEADER OVERLAY */}
+            <TouchableOpacity 
+                style={styles.cameraButton} 
+                onPress={handleCameraPress}
+            >
+                <Camera size={26} color="#fff" />
+            </TouchableOpacity>
+
             <FlatList
                 data={reels}
                 keyExtractor={(item) => item.id.toString()}
@@ -105,5 +121,13 @@ export default function ReelsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    center: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }
+    center: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    // ✅ NEW STYLE: Camera Button positioned top-right
+    cameraButton: {
+        position: 'absolute',
+        top: 40, // Adjust based on safe area/status bar
+        right: 20,
+        zIndex: 100, // Ensure it is above the FlatList content
+        padding: 8,
+    }
 });
