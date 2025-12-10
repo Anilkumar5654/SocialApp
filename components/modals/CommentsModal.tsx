@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 
 import Colors from '@/constants/colors';
 import { api } from '@/services/api';
-import { useAuth } from '@/contexts/authContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUri } from '@/utils/media';
 
 // 🎯 Ensure this path matches where you put CommentItem.tsx (e.g., @/components/ui/CommentItem)
