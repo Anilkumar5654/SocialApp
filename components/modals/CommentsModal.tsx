@@ -1,33 +1,52 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { X, Send, Trash2 } from 'lucide-react-native';
-import { Image } from 'expo-image';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { X, Send } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 
 import Colors from '@/constants/colors';
-import { formatTimeAgo } from '@/constants/timeFormat';
 import { api } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authContext';
 import { getMediaUri } from '@/utils/media';
+
+// 🎯 Ensure this path matches where you put CommentItem.tsx (e.g., @/components/ui/CommentItem)
+import CommentItem from '@/components/ui/CommentItem'; 
+
+// --- TYPES (Simplified for clarity) ---
+interface UserInfo {
+    username: string;
+    avatar: string;
+}
+interface Comment {
+    id: string;
+    user_id: string;
+    content: string;
+    created_at: string;
+    user: UserInfo;
+    parent_comment_id: string | null;
+    replies: Comment[]; 
+    reply_count: number;
+}
 
 interface CommentsModalProps {
   visible: boolean;
   onClose: () => void;
   entityId: string;
-  entityType: 'post' | 'reel' | 'video'; // Ab ye Video ko bhi support karega
+  entityType: 'post' | 'reel' | 'video';
 }
+
+const { height } = Dimensions.get('window');
 
 export default function CommentsModal({ visible, onClose, entityId, entityType }: CommentsModalProps) {
   const { user: currentUser } = useAuth();
   const [text, setText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null); // State for Reply Feature
   const queryClient = useQueryClient();
 
-  // Unique Query Key based on type
   const queryKey = [`${entityType}-comments`, entityId];
-
-  // 👇 Dynamic API Selection Logic
-  // Ye check karega ki Post hai, Reel hai ya Video, aur sahi API call karega
+  
+  // Dynamic API Selection Logic
   const getApiMethod = () => {
       switch (entityType) {
           case 'video': return api.videos;
@@ -35,23 +54,58 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
           default: return api.posts;
       }
   };
-  
   const currentApi = getApiMethod();
 
   // 1. Fetch Comments
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<any, Error, { comments: Comment[] }>({
     queryKey: queryKey,
-    queryFn: () => currentApi.getComments(entityId, 1),
+    queryFn: () => currentApi.getComments(entityId, 1), 
     enabled: visible,
   });
 
-  const comments = data?.comments || [];
+  // Since API might return flat or nested, we take the top level for the FlatList
+  const topLevelComments = data?.comments.filter((c: Comment) => !c.parent_comment_id) || [];
 
-  // 2. Post Comment Mutation
+  // --- ACTIONS ---
+
+  // Placeholder for future Reply function (Sets the reply context)
+  const handleReplyPress = useCallback((comment: Comment) => {
+      setReplyingTo(comment);
+      // Optional: Focus the input field here
+  }, []);
+
+  const handlePost = () => {
+      if (!text.trim()) return;
+      
+      // Determine if it's a reply or a top-level comment
+      const parentId = replyingTo?.id || null; 
+      
+      // 🎯 Mutation now passes parent_id, but API needs to support it (future backend change)
+      postMutation.mutate({ content: text, parent_id: parentId }); 
+  };
+
+  const handleUserPress = (userId: string) => {
+      onClose();
+      router.push({ pathname: '/user/[userId]', params: { userId } });
+  };
+
+  const handleDelete = useCallback((commentId: string) => {
+    Alert.alert('Delete', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(commentId) }
+    ]);
+  }, []);
+
+
+  // 2. Post Comment/Reply Mutation
   const postMutation = useMutation({
-    mutationFn: (content: string) => currentApi.comment(entityId, content),
+    mutationFn: ({ content, parent_id }: { content: string, parent_id: string | null }) => {
+        // Assuming currentApi.comment signature is now (entityId, content, parent_id)
+        return currentApi.comment(entityId, content, parent_id); 
+    },
     onSuccess: () => {
       setText('');
+      setReplyingTo(null); // Reset reply state after successful post
       queryClient.invalidateQueries({ queryKey });
     },
     onError: (err: any) => Alert.alert('Error', err.message),
@@ -60,8 +114,6 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
   // 3. Delete Comment Mutation
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => {
-        // Agar specific API me delete ka method alag hai to yaha handle karein
-        // Abhi ke liye Maan rahe hain ki sabme 'deleteComment' hai ya fallback post wala hai
         if (currentApi.deleteComment) return currentApi.deleteComment(commentId);
         return api.posts.deleteComment(commentId); 
     },
@@ -70,17 +122,15 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
     }
   });
 
-  const handleDelete = (commentId: string) => {
-    Alert.alert('Delete', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(commentId) }
-    ]);
-  };
 
-  const handleUserPress = (userId: string) => {
-      onClose();
-      router.push({ pathname: '/user/[userId]', params: { userId } });
-  };
+  // Input Placeholder Text
+  const currentPlaceholder = useMemo(() => {
+      if (replyingTo) {
+          return `Replying to ${replyingTo.user?.username}...`;
+      }
+      return `Comment as ${currentUser?.username}...`;
+  }, [replyingTo, currentUser]);
+
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -88,7 +138,7 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
         
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Comments ({comments.length})</Text>
+          <Text style={styles.title}>Comments ({topLevelComments.length})</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <X color={Colors.text} size={24} />
           </TouchableOpacity>
@@ -99,33 +149,20 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
           <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
         ) : (
           <FlatList
-            data={comments}
+            data={topLevelComments}
             keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => {
-               const isOwner = String(currentUser?.id) === String(item.user_id);
-               return (
-                <View style={styles.item}>
-                  <TouchableOpacity onPress={() => handleUserPress(item.user_id)}>
-                    <Image source={{ uri: getMediaUri(item.user?.avatar) }} style={styles.avatar} />
-                  </TouchableOpacity>
-                  
-                  <View style={styles.content}>
-                    <View style={styles.row}>
-                        <Text style={styles.username}>{item.user?.username || 'User'}</Text>
-                        <Text style={styles.time}>{formatTimeAgo(item.created_at)}</Text>
-                    </View>
-                    <Text style={styles.text}>{item.content}</Text>
-                  </View>
-
-                  {isOwner && (
-                    <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                        <Trash2 size={16} color={Colors.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-               );
-            }}
+            // Removed internal padding here, now handled by CommentItem.tsx
+            contentContainerStyle={styles.listContent} 
+            renderItem={({ item }) => (
+                <CommentItem
+                    comment={item}
+                    currentUser={currentUser}
+                    onUserPress={handleUserPress}
+                    onDelete={handleDelete}
+                    onReply={handleReplyPress} // Pass the reply context setter
+                    isReply={false}
+                />
+            )}
             ListEmptyComponent={
                 <View style={styles.empty}>
                     <Text style={styles.emptyText}>No comments yet. Be the first!</Text>
@@ -135,19 +172,34 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
         )}
 
         {/* Input Area (With Keyboard Handling) */}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+            
+            {/* Replying To Bar (Only visible when replying) */}
+            {replyingTo && (
+                <View style={styles.replyingToBar}>
+                    <Text style={styles.replyingToText}>
+                        Replying to <Text style={styles.replyingToUsername}>{replyingTo.user?.username}</Text>
+                    </Text>
+                    <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                        <X size={16} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
+            
+            {/* Input Field */}
             <View style={styles.inputBox}>
             <Image source={{ uri: getMediaUri(currentUser?.avatar) }} style={styles.inputAvatar} />
             <TextInput 
                 style={styles.input} 
-                placeholder={`Comment as ${currentUser?.username}...`} 
+                placeholder={currentPlaceholder} 
                 placeholderTextColor={Colors.textSecondary}
                 value={text}
                 onChangeText={setText}
                 multiline
+                editable={!postMutation.isPending}
             />
             <TouchableOpacity 
-                onPress={() => text.trim() && postMutation.mutate(text)} 
+                onPress={handlePost} 
                 disabled={!text.trim() || postMutation.isPending}
                 style={styles.sendBtn}
             >
@@ -161,25 +213,39 @@ export default function CommentsModal({ visible, onClose, entityId, entityType }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.background, minHeight: height * 0.8 },
+  
+  // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#222' },
   title: { color: Colors.text, fontSize: 16, fontWeight: '700' },
   closeBtn: { padding: 4 },
+  
+  // List
   loader: { marginTop: 20 },
-  listContent: { padding: 16, paddingBottom: 20 },
+  listContent: { paddingVertical: 10 }, 
   empty: { marginTop: 40, alignItems: 'center' },
   emptyText: { color: Colors.textSecondary },
   
-  // Comment Item
-  item: { flexDirection: 'row', marginBottom: 20, gap: 12 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
-  content: { flex: 1, gap: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  username: { color: Colors.text, fontWeight: '600', fontSize: 13 },
-  time: { color: Colors.textSecondary, fontSize: 11 },
-  text: { color: Colors.text, fontSize: 14, lineHeight: 20 },
-  deleteBtn: { padding: 4, alignSelf: 'flex-start' },
-
+  // Replying To Bar
+  replyingToBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#333',
+    borderTopWidth: 1,
+    borderColor: '#444'
+  },
+  replyingToText: {
+    color: Colors.text,
+    fontSize: 13,
+  },
+  replyingToUsername: {
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  
   // Input
   inputBox: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderColor: '#222', alignItems: 'center', gap: 12, marginBottom: Platform.OS === 'ios' ? 20 : 0 },
   inputAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#333' },
