@@ -119,7 +119,7 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
 
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gradient} />
 
-                    <View style={{ bottom: insets.bottom + 60, position: 'absolute', right: 0, zIndex: 30 }}> {/* Added zIndex for actions */}
+                    <View style={{ bottom: insets.bottom + 60, position: 'absolute', right: 0, zIndex: 30 }}> 
                         <ReelActions 
                             item={item}
                             isLiked={isLiked}
@@ -131,12 +131,12 @@ export default React.memo(function ReelItem({ item, isActive, openComments, open
                     </View>
 
                     {/* Bottom Info */}
-                    <View style={[styles.info, { bottom: insets.bottom + 20, zIndex: 40 }]}> {/* Added zIndex */}
+                    <View style={[styles.info, { bottom: insets.bottom + 20, zIndex: 40 }]}>
                         <View style={styles.userRow}>
                             {/* 🔗 Channel Click Area (Name + Avatar) */}
                             <TouchableOpacity 
                                 onPress={handleChannelPress} 
-                                style={styles.userInfoClickable} // Using specific style to control area
+                                style={styles.userInfoClickable} 
                                 activeOpacity={0.8}
                             >
                                 <Image source={{ uri: getMediaUri(item.channel_avatar) }} style={styles.avatar} />
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     info: { position: 'absolute', left: 16, right: 80 },
     userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
     
-    // ✅ FIX: Consolidated clickable area for user info
+    // ✅ FIX: Consolidated clickable area for user info (Name + Avatar)
     userInfoClickable: { flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 50 }, 
     
     avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#fff' },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
         borderColor: '#fff', 
         borderRadius: 8, 
         minWidth: 70,
-        zIndex: 50, // Ensures Subscribe button is clickable
+        zIndex: 50, 
     },
     
     caption: { color: '#fff', fontSize: 14, marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 },
