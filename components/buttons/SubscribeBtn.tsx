@@ -1,3 +1,5 @@
+// File: src/components/buttons/SubscribeBtn.tsx
+
 import React, { useState, useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
@@ -34,7 +36,8 @@ export default function SubscribeBtn({ channelId, isSubscribed: initialStatus, s
       style={[
         styles.btn,
         isSubscribed ? styles.subscribedBtn : styles.subscribeBtn,
-        style
+        style,
+        { zIndex: 99 } // ✅ FIX: Added high zIndex to ensure clickability/no overlap
       ]}
       onPress={() => subMutation.mutate()}
       disabled={subMutation.isPending}
@@ -76,4 +79,3 @@ const styles = StyleSheet.create({
     color: '#fff', // White text on Dark btn
   }
 });
-          
