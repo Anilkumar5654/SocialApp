@@ -35,8 +35,8 @@ export default function SubscribeBtn({ channelId, isSubscribed: initialStatus, s
     <TouchableOpacity
       style={[
         styles.btn,
-        isSubscribed ? styles.subscribedBtn : styles.subscribeBtn,
-        style,
+        style, // 👈 User defined style applied first
+        isSubscribed ? styles.subscribedBtn : styles.subscribeBtn, // 👈 Our color logic applied LAST to ensure it dominates
         { zIndex: 99 } // ✅ FIX: Added high zIndex to ensure clickability/no overlap
       ]}
       onPress={() => subMutation.mutate()}
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   subscribeBtn: {
-    backgroundColor: Colors.text, // White/Black based on theme
+    backgroundColor: Colors.primary, // Primary color (Pink) for better visibility
   },
   subscribedBtn: {
     backgroundColor: '#333', // Dark Grey
@@ -71,11 +71,11 @@ const styles = StyleSheet.create({
     borderColor: '#444',
   },
   text: {
-    color: Colors.background, // Black text on White btn
+    color: '#fff', // White text on Primary/Dark btn
     fontWeight: '700',
     fontSize: 13,
   },
   subscribedText: {
-    color: '#fff', // White text on Dark btn
+    color: '#fff', 
   }
 });
