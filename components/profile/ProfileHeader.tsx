@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { Settings, BarChart3, Edit, MessageSquare, CheckCircle } from 'lucide-react-native'; // CheckCircle imported
+import { Settings, BarChart3, Edit, MessageSquare, CheckCircle } from 'lucide-react-native'; 
 
 import Colors from '@/constants/colors'; 
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,8 +22,9 @@ interface ProfileHeaderProps {
 export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps) {
     const { user: authUser, isAuthenticated } = useAuth();
     
+    // Check if the profile belongs to the logged-in user
     const isMyProfile = isAuthenticated && String(authUser?.id) === String(profileUser?.id);
-    const isVerified = profileUser?.is_verified; // Check if user is verified
+    const isVerified = profileUser?.is_verified; 
 
     // ✅ Fallback Set: Using custom assets
     const avatarUri = profileUser?.avatar 
@@ -112,16 +113,18 @@ export default function ProfileHeader({ user: profileUser }: ProfileHeaderProps)
                     {isMyProfile ? (
                         // --- YOUR PROFILE: EDIT, STUDIO, SETTINGS ---
                         <>
+                            {/* UPDATED: Path changed to /profile/edit */}
                             <TouchableOpacity 
                                 style={[styles.editButton, {backgroundColor: Colors.textSecondary}]}
-                                onPress={() => router.push('/edit-profile')}
+                                onPress={() => router.push('/profile/edit')}
                             >
                                 <Text style={[styles.actionButtonText, {color: Colors.background}]}>Edit Profile</Text>
                             </TouchableOpacity>
                             
+                            {/* UPDATED: Path changed to /creator */}
                             <TouchableOpacity 
                                 style={[styles.iconButton, {backgroundColor: Colors.textSecondary}]}
-                                onPress={() => router.push('/creator-studio')}
+                                onPress={() => router.push('/creator')}
                             >
                                 <BarChart3 size={20} color={Colors.background} />
                             </TouchableOpacity>
@@ -193,7 +196,7 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         marginTop: 0, 
     },
-    nameRow: { // ✅ Added to wrap Name and Verified Badge
+    nameRow: { 
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -204,7 +207,7 @@ const styles = StyleSheet.create({
         fontWeight: '800', 
         textAlign: 'center',
     },
-    verifiedIcon: { // Style for the CheckCircle
+    verifiedIcon: { 
         marginLeft: 6,
         marginTop: 2, 
     },
@@ -257,7 +260,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     
-    // Buttons for MY PROFILE (Taller, wider design)
+    // Buttons for MY PROFILE 
     editButton: { 
         paddingVertical: 12,
         paddingHorizontal: 15,
@@ -280,11 +283,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     
-    // Buttons for OTHER USER (Consistent Size and Alignment)
+    // Buttons for OTHER USER 
     followButton: { 
         backgroundColor: Colors.primary, 
         paddingVertical: 12,
-        paddingHorizontal: 15, // ✅ Consistent Padding
+        paddingHorizontal: 15, 
         borderRadius: 10,
         flex: 1,
         justifyContent: 'center', 

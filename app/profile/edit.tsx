@@ -55,7 +55,6 @@ export default function EditProfileScreen() {
 
   // Current images
   const currentProfileImage = buildMediaUrl(user?.avatar, 'userProfile');
-
   const currentCoverImage = buildMediaUrl(user?.coverPhoto || user?.cover_photo, 'userCover');
 
   // Image picker functions
@@ -115,6 +114,7 @@ export default function EditProfileScreen() {
       if (data.user) {
         updateUser(data.user);
       }
+      // Invalidate queries to refresh data across the app
       queryClient.invalidateQueries({ queryKey: ['user-posts'] });
       queryClient.invalidateQueries({ queryKey: ['user-reels'] });
       queryClient.invalidateQueries({ queryKey: ['user-videos'] });
@@ -145,12 +145,14 @@ export default function EditProfileScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Header */}
+      {/* Custom Header: Contains Back (X) and Save (Check) buttons */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
           <X color={Colors.text} size={24} />
         </TouchableOpacity>
+        
         <Text style={styles.headerTitle}>Edit Profile</Text>
+        
         <TouchableOpacity 
           onPress={handleSave} 
           style={styles.headerButton}
@@ -174,6 +176,7 @@ export default function EditProfileScreen() {
             source={{ uri: coverImage || currentCoverImage }}
             style={styles.coverPhoto}
             contentFit="cover"
+            transition={200}
           />
           <TouchableOpacity 
             style={styles.changeCoverButton}
@@ -189,6 +192,7 @@ export default function EditProfileScreen() {
               source={{ uri: profileImage || currentProfileImage }}
               style={styles.profilePhoto}
               contentFit="cover"
+              transition={200}
             />
             <TouchableOpacity 
               style={styles.changeProfileButton}
@@ -305,12 +309,12 @@ export default function EditProfileScreen() {
               <View style={styles.previewInfo}>
                 <Text style={styles.previewName}>{name || 'Your Name'}</Text>
                 <Text style={styles.previewUsername}>@{username || 'username'}</Text>
-                {bio && <Text style={styles.previewBio} numberOfLines={2}>{bio}</Text>}
+                {bio ? <Text style={styles.previewBio} numberOfLines={2}>{bio}</Text> : null}
               </View>
             </View>
           </View>
 
-          {/* Save Button */}
+          {/* Save Button (Also at bottom for ease) */}
           <TouchableOpacity 
             style={[styles.saveButton, updateProfileMutation.isPending && styles.saveButtonDisabled]}
             onPress={handleSave}
@@ -342,6 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    zIndex: 10,
   },
   headerButton: {
     padding: 8,
@@ -370,14 +375,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
   },
   changePhotoText: {
-    color: Colors.text,
-    fontSize: 14,
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '600' as const,
   },
   profilePhotoContainer: {
@@ -391,6 +396,7 @@ const styles = StyleSheet.create({
     borderRadius: 55,
     borderWidth: 4,
     borderColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
   changeProfileButton: {
     position: 'absolute',
@@ -468,6 +474,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
+    backgroundColor: Colors.surface,
   },
   previewInfo: {
     flex: 1,

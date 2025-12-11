@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowBigRight, ArrowBigLeft, Pause, Play, Maximize, ArrowLeft } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -11,74 +11,109 @@ interface VideoControllerProps {
     isFullscreen: boolean;
     videoDuration: number;
     currentPosition: number;
-    seekPosition: number;
-    isSeeking: boolean;
-    showSeekIcon: boolean;
-    seekDirection: 'forward' | 'backward';
     togglePlayPause: () => void;
     toggleFullscreen: () => void;
     handleDoubleTap: (e: any) => void;
-    handleSeekStart: (e: any) => void;
-    handleSeekMove: (e: any) => void;
-    handleSeekEnd: (e: any) => void;
-    handleLayout: (e: any) => void;
+    handleSeekStart: () => void; // Parent ko sirf start batao
+    handleSeekEnd: (finalPosition: number) => void; // Parent ko final value do
     goBack: () => void;
-    progressBarRef: React.RefObject<View>;
 }
 
 export default function VideoController({
-    isPlaying, showControls, isFullscreen, isSeeking, currentPosition, videoDuration,
-    seekPosition, showSeekIcon, seekDirection, togglePlayPause, toggleFullscreen,
-    handleDoubleTap, handleSeekStart, handleSeekMove, handleSeekEnd, handleLayout, goBack, progressBarRef
+    isPlaying, showControls, isFullscreen, videoDuration, currentPosition,
+    togglePlayPause, toggleFullscreen, handleDoubleTap, 
+    handleSeekStart, handleSeekEnd, goBack
 }: VideoControllerProps) {
     const insets = useSafeAreaInsets();
-    const displayPosition = isSeeking && seekPosition > 0 ? seekPosition : currentPosition;
+    const progressBarRef = useRef<View>(null);
+    const progressBarWidth = useRef(0);
+
+    // 🔥 LOCAL STATE (Jumping fix karne ke liye)
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragPosition, setDragPosition] = useState(0);
+
+    // Jab drag nahi ho raha, tabhi parent ki suno
+    const displayPosition = isDragging ? dragPosition : currentPosition;
+    
+    // Percentage Calculation
     const progressPercentage = videoDuration > 0 ? (displayPosition / videoDuration) * 100 : 0;
+    const safeProgress = Math.min(Math.max(progressPercentage, 0), 100);
+
+    // --- 🎮 LOCAL GESTURE HANDLERS ---
+    const onTouchStart = () => {
+        setIsDragging(true);
+        setDragPosition(currentPosition); // Jahan hai wahin se shuru karo
+        handleSeekStart(); // Parent ko bolo video pause kare
+    };
+
+    const onTouchMove = (e: any) => {
+        const width = progressBarWidth.current || 1;
+        const locationX = e.nativeEvent.locationX;
+        
+        // Calculate new position locally (Instant Update)
+        const pct = Math.max(0, Math.min(1, locationX / width));
+        const newPos = pct * videoDuration;
+        
+        setDragPosition(newPos); // Sirf local state update karo (No Lag)
+    };
+
+    const onTouchEnd = () => {
+        setIsDragging(false);
+        handleSeekEnd(dragPosition); // Parent ko final value bhej do
+    };
+
+    const handleLayout = (e: any) => { progressBarWidth.current = e.nativeEvent.layout.width; };
 
     return (
-        <Pressable style={styles.overlay} onPress={handleDoubleTap}>
-            {showSeekIcon && (
-                <View style={styles.seekOverlay}>
-                    <View style={styles.seekIconContainer}>
-                        {seekDirection === 'forward' ? <ArrowBigRight color="white" size={48} /> : <ArrowBigLeft color="white" size={48} />}
-                        <Text style={styles.seekText}>10s</Text>
-                    </View>
-                </View>
-            )}
-
+        <TouchableOpacity activeOpacity={1} style={styles.overlay} onPress={handleDoubleTap}>
+            {/* Seek Icon Animation (Optional: ise props se control kar sakte ho agar chahiye) */}
+            
             {showControls && (
                 <View style={styles.controls}>
+                    {/* Top Bar */}
                     <View style={[styles.topBar, { paddingTop: isFullscreen ? insets.top : 10 }]}>
                        <TouchableOpacity onPress={goBack}><ArrowLeft color="white" size={24} /></TouchableOpacity>
                     </View>
 
+                    {/* Center Play/Pause */}
                     <TouchableOpacity onPress={togglePlayPause} style={styles.centerBtn}>
                         {isPlaying ? <Pause color="white" size={48} fill="white" /> : <Play color="white" size={48} fill="white" />}
                     </TouchableOpacity>
 
+                    {/* Bottom Bar */}
                     <View style={styles.bottomBar}>
                         <Text style={styles.timeText}>
                             {formatDuration(displayPosition / 1000)} / {formatDuration(videoDuration / 1000)}
                         </Text>
-                        <Pressable
+                        
+                        {/* 🔥 SUPER SMOOTH SEEK BAR */}
+                        <View
                             ref={progressBarRef}
                             style={styles.progressBar}
-                            onLayout={handleLayout} 
-                            onPressIn={handleSeekStart} 
-                            onResponderMove={handleSeekMove} 
-                            onResponderRelease={handleSeekEnd} 
+                            onLayout={handleLayout}
+                            
+                            // Gestures
+                            onStartShouldSetResponder={() => true}
+                            onMoveShouldSetResponder={() => true}
+                            onResponderGrant={onTouchStart}
+                            onResponderMove={onTouchMove}
+                            onResponderRelease={onTouchEnd}
+                            onResponderTerminate={onTouchEnd}
                         >
                             <View style={styles.track} />
-                            <View style={[styles.fill, { width: `${progressPercentage}%` }]} />
-                            <View style={[styles.handle, { left: `${progressPercentage}%` }]} />
-                        </Pressable>
+                            <View style={[styles.fill, { width: `${safeProgress}%` }]} />
+                            
+                            {/* Handle (Bada Touch Area) */}
+                            <View style={[styles.handle, { left: `${safeProgress}%` }]} />
+                        </View>
+
                         <TouchableOpacity onPress={toggleFullscreen}>
                             <Maximize color="white" size={20} style={{ marginLeft: 10 }}/>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
-        </Pressable>
+        </TouchableOpacity>
     );
 }
 
@@ -89,12 +124,8 @@ const styles = StyleSheet.create({
   centerBtn: { alignSelf: 'center' },
   bottomBar: { flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 10 },
   timeText: { color: '#fff', fontSize: 12, marginRight: 10, fontWeight: '600', minWidth: 80 },
-  seekOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 5 },
-  seekIconContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, borderRadius: 10 },
-  seekText: { color: '#fff', fontSize: 20, fontWeight: '700', marginLeft: 5 },
-  progressBar: { flex: 1, height: 20, justifyContent: 'center' },
+  progressBar: { flex: 1, height: 30, justifyContent: 'center' },
   track: { position: 'absolute', height: 3, width: '100%', backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2 },
   fill: { height: 3, backgroundColor: Colors.primary, borderRadius: 2 },
-  handle: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary, top: 4, transform: [{ translateX: -6 }] },
+  handle: { position: 'absolute', width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.primary, top: 8, transform: [{ translateX: -7 }] },
 });
-                                                                      

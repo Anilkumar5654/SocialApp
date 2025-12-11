@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Play, PlusCircle, Video, User } from 'lucide-react-native';
+import { Home, Play, PlusCircle, Video, User } from 'lucide-react-native'; 
 import React from 'react';
 
 import Colors from '@/constants/colors';

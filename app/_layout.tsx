@@ -17,10 +17,16 @@ function RootLayoutNav() {
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+        
+        {/* --- AUTHENTICATION --- */}
         <Stack.Screen name="auth/login" options={{ headerShown: false }} />
         <Stack.Screen name="auth/register" options={{ headerShown: false }} />
         <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+        
+        {/* --- MAIN TABS (Home, Reels, etc.) --- */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+        {/* --- COMMON FEATURES (Modals) --- */}
         <Stack.Screen
           name="search"
           options={{ headerShown: false, presentation: 'modal' }}
@@ -33,35 +39,58 @@ function RootLayoutNav() {
           name="messages"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+
+        {/* --- 🛠️ CRITICAL FIXES FOR WHITE FLASH --- */}
+
+        {/* 1. Settings (app/settings/index.tsx) */}
         <Stack.Screen
           name="settings"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+
+        {/* 2. Edit Profile (app/profile/edit.tsx) */}
         <Stack.Screen
-          name="video-player"
-          options={{ headerShown: false, presentation: 'fullScreenModal' }}
-        />
-        <Stack.Screen
-          name="creator-studio"
+          name="profile/edit"
           options={{ headerShown: false, presentation: 'modal' }}
         />
-        <Stack.Screen
-          name="story-viewer"
-          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+
+        {/* 3. User Profile (app/user/[userId].tsx) */}
+        <Stack.Screen 
+          name="user/[userId]" 
+          options={{ headerShown: false }} 
         />
+
+        {/* --- CREATOR TOOLS --- */}
         <Stack.Screen
-          name="story-upload"
+          name="creator"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+        <Stack.Screen 
+          name="creator/video/analytics" 
+          options={{ headerShown: false, presentation: 'modal' }} 
+        />
+
+        {/* --- ADMIN & DEBUG --- */}
         <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen
           name="api-debug"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+
+        {/* --- MEDIA PLAYERS --- */}
         <Stack.Screen
-          name="edit-profile"
+          name="videos/player"
+          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+        />
+        <Stack.Screen
+          name="stories/view"
+          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+        />
+        <Stack.Screen
+          name="stories/create"
           options={{ headerShown: false, presentation: 'modal' }}
         />
+
       </Stack>
     </>
   );

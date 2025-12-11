@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Search, Bell, MessageSquare } from 'lucide-react-native';
+import { Search, Bell, MessageSquare } from 'lucide-react-native'; 
 
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -49,13 +49,13 @@ export default function HomeScreen() {
         <Text style={styles.logo}>SocialHub</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity onPress={() => router.push('/feed/search')} style={styles.iconBtn}>
-            <Search color={Colors.text} size={24} />
+            <Search color={Colors.text} size={24} /> 
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.iconBtn}>
             <Bell color={Colors.text} size={24} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/messages')} style={styles.iconBtn}>
-            <MessageSquare color={Colors.text} size={24} />
+            <MessageSquare color={Colors.text} size={24} /> 
           </TouchableOpacity>
         </View>
       </View>

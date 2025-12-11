@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router'; // ✅ 1. Stack yahan import kiya
 import {
   ArrowLeft,
   User,
@@ -124,14 +124,19 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      
+      {/* ✅ 2. YE LINE WHITE HEADER HATAYEGI */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ✅ 3. YE CUSTOM HEADER (BLACK WALA) WAPAS LAGAYA HAI (BACK BUTTON KE LIYE) */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft color={Colors.text} size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
-
+      
       <ScrollView style={styles.content}>
         
         {/* I. ACCOUNT */}
@@ -252,6 +257,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  // Header styles wapas add kiye hain
   header: {
     flexDirection: 'row',
     alignItems: 'center',
